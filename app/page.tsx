@@ -7,7 +7,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function Dashboard() {
-  const [devices, setDevices] = useState([]);
+  const [devices, setDevices] = useState<any[]>([]);
   const [newDeviceName, setNewDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
 
