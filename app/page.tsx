@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
 
 interface Device {
   id: string;
@@ -12,6 +14,8 @@ interface Device {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [newDeviceName, setNewDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,7 +23,21 @@ export default function Dashboard() {
 
   useEffect(() => {
     setMounted(true);
-    fetchDevices();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.push('/login');
+      } else {
+        setUser(session.user);
+        fetchDevices();
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.push('/login');
+      else setUser(session.user);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const fetchDevices = async () => {
@@ -59,14 +77,30 @@ export default function Dashboard() {
     if (!error) await fetchDevices();
   };
 
-  if (!mounted) return null;
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
+
+  if (!mounted || !user) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 mb-8 text-center">
-          VoIP Device Dashboard
-        </h1>
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-gray-900">VoIP Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">{user.email}</span>
+            <button
+              onClick={signOut}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
 
         {/* Add Device */}
         <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
@@ -104,17 +138,11 @@ export default function Dashboard() {
                 className="p-6 flex items-center justify-between hover:bg-gray-50"
               >
                 <div className="flex items-center space-x-4">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      device.status ? 'bg-green-500' : 'bg-red-500'
-                    }`}
-                  />
+                  <div className={`w-3 h-3 rounded-full ${device.status ? 'bg-green-500' : 'bg-red-500'}`} />
                   <div>
                     <h3 className="font-semibold text-lg">{device.name}</h3>
                     <p className="text-sm text-gray-500">
-                      {device.created_at
-                        ? new Date(device.created_at).toLocaleString()
-                        : 'Just now'}
+                      {device.created_at ? new Date(device.created_at).toLocaleString() : 'Just now'}
                     </p>
                   </div>
                 </div>
