@@ -2,20 +2,13 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 interface Device {
   id: string;
   name: string;
   status: boolean;
   created_at: string;
-}
-
-function getSupabase(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Missing Supabase env vars');
-  return createClient(url, key);
 }
 
 export default function Dashboard() {
@@ -30,60 +23,40 @@ export default function Dashboard() {
   }, []);
 
   const fetchDevices = async () => {
-    try {
-      const supabase = getSupabase();
-      const { data } = await supabase
-        .from('devices')
-        .select('*')
-        .order('created_at', { ascending: false });
-      setDevices(data || []);
-    } catch (e) {
-      console.error(e);
-    }
+    const { data } = await supabase
+      .from('devices')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setDevices(data || []);
   };
 
   const addDevice = async () => {
     if (!newDeviceName.trim()) return;
     setLoading(true);
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('devices')
-        .insert({ name: newDeviceName.trim(), status: false });
-      if (!error) {
-        setNewDeviceName('');
-        await fetchDevices();
-      }
-    } catch (e) {
-      console.error(e);
+    const { error } = await supabase
+      .from('devices')
+      .insert({ name: newDeviceName.trim(), status: false });
+    if (!error) {
+      setNewDeviceName('');
+      await fetchDevices();
     }
     setLoading(false);
   };
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('devices')
-        .update({ status: !currentStatus })
-        .eq('id', id);
-      if (!error) await fetchDevices();
-    } catch (e) {
-      console.error(e);
-    }
+    const { error } = await supabase
+      .from('devices')
+      .update({ status: !currentStatus })
+      .eq('id', id);
+    if (!error) await fetchDevices();
   };
 
   const deleteDevice = async (id: string) => {
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('devices')
-        .delete()
-        .eq('id', id);
-      if (!error) await fetchDevices();
-    } catch (e) {
-      console.error(e);
-    }
+    const { error } = await supabase
+      .from('devices')
+      .delete()
+      .eq('id', id);
+    if (!error) await fetchDevices();
   };
 
   if (!mounted) return null;
