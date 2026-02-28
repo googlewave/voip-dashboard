@@ -6,8 +6,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+interface Device {
+  id: string;
+  name: string;
+  status: boolean;
+  created_at: string;
+}
+
 export default function Dashboard() {
-  const [devices, setDevices] = useState<any[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [newDeviceName, setNewDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +32,6 @@ export default function Dashboard() {
     const { error } = await supabase
       .from('devices')
       .insert({ name: newDeviceName, status: false });
-    
     if (!error) {
       setNewDeviceName('');
       fetchDevices();
@@ -33,16 +39,15 @@ export default function Dashboard() {
     setLoading(false);
   };
 
-  const toggleStatus = async (id, currentStatus) => {
+  const toggleStatus = async (id: string, currentStatus: boolean) => {
     const { error } = await supabase
       .from('devices')
       .update({ status: !currentStatus })
       .eq('id', id);
-    
     if (!error) fetchDevices();
   };
 
-  const deleteDevice = async (id) => {
+  const deleteDevice = async (id: string) => {
     const { error } = await supabase.from('devices').delete().eq('id', id);
     if (!error) fetchDevices();
   };
@@ -53,7 +58,7 @@ export default function Dashboard() {
         <h1 className="text-4xl font-bold text-gray-900 mb-8 text-center">
           VoIP Device Dashboard
         </h1>
-        
+
         {/* Add Device */}
         <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
           <h2 className="text-2xl font-semibold mb-4">Add New Device</h2>
@@ -81,14 +86,12 @@ export default function Dashboard() {
               Devices ({devices.length})
             </h2>
           </div>
-          
+
           <div className="divide-y divide-gray-200">
             {devices.map((device) => (
               <div key={device.id} className="p-6 flex items-center justify-between hover:bg-gray-50">
                 <div className="flex items-center space-x-4">
-                  <div className={`w-3 h-3 rounded-full ${
-                    device.status ? 'bg-green-500' : 'bg-red-500'
-                  }`} />
+                  <div className={`w-3 h-3 rounded-full ${device.status ? 'bg-green-500' : 'bg-red-500'}`} />
                   <div>
                     <h3 className="font-semibold text-lg">{device.name}</h3>
                     <p className="text-sm text-gray-500">
@@ -105,7 +108,7 @@ export default function Dashboard() {
                     }`}
                     onClick={() => toggleStatus(device.id, device.status)}
                   >
-                    {device.status ? 'Offline' : 'Online'}
+                    {device.status ? 'Set Offline' : 'Set Online'}
                   </button>
                   <button
                     className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition font-medium"
