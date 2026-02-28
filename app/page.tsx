@@ -49,11 +49,11 @@ export default function Dashboard() {
   };
 
   const addDevice = async () => {
-    if (!newDeviceName.trim()) return;
+    if (!newDeviceName.trim() || !user) return;
     setLoading(true);
     const { error } = await supabase
       .from('devices')
-      .insert({ name: newDeviceName.trim(), status: false });
+      .insert({ name: newDeviceName.trim(), status: false, user_id: user.id });
     if (!error) {
       setNewDeviceName('');
       await fetchDevices();
