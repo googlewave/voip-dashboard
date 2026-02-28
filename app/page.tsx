@@ -2,10 +2,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 interface Device {
   id: string;
   name: string;
@@ -17,6 +13,11 @@ export default function Dashboard() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [newDeviceName, setNewDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     fetchDevices();
@@ -70,7 +71,7 @@ export default function Dashboard() {
               onChange={(e) => setNewDeviceName(e.target.value)}
             />
             <button
-              className="px-8 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
+              className="px-8 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
               onClick={addDevice}
               disabled={loading || !newDeviceName}
             >
@@ -124,7 +125,7 @@ export default function Dashboard() {
           {devices.length === 0 && (
             <div className="p-12 text-center text-gray-500">
               <p className="text-xl mb-4">No devices yet</p>
-              <p>Add your first device above!</p>
+              <p>Add your first VoIP device above!</p>
             </div>
           )}
         </div>
