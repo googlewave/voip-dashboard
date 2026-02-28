@@ -1,7 +1,8 @@
 'use client';
 export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 interface Device {
   id: string;
@@ -10,49 +11,82 @@ interface Device {
   created_at: string;
 }
 
+function getSupabase(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Missing Supabase env vars');
+  return createClient(url, key);
+}
+
 export default function Dashboard() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [newDeviceName, setNewDeviceName] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     fetchDevices();
   }, []);
 
   const fetchDevices = async () => {
-    const { data } = await supabase.from('devices').select('*').order('created_at', { ascending: false });
-    setDevices(data || []);
+    try {
+      const supabase = getSupabase();
+      const { data } = await supabase
+        .from('devices')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setDevices(data || []);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const addDevice = async () => {
+    if (!newDeviceName.trim()) return;
     setLoading(true);
-    const { error } = await supabase
-      .from('devices')
-      .insert({ name: newDeviceName, status: false });
-    if (!error) {
-      setNewDeviceName('');
-      fetchDevices();
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('devices')
+        .insert({ name: newDeviceName.trim(), status: false });
+      if (!error) {
+        setNewDeviceName('');
+        await fetchDevices();
+      }
+    } catch (e) {
+      console.error(e);
     }
     setLoading(false);
   };
 
   const toggleStatus = async (id: string, currentStatus: boolean) => {
-    const { error } = await supabase
-      .from('devices')
-      .update({ status: !currentStatus })
-      .eq('id', id);
-    if (!error) fetchDevices();
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('devices')
+        .update({ status: !currentStatus })
+        .eq('id', id);
+      if (!error) await fetchDevices();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const deleteDevice = async (id: string) => {
-    const { error } = await supabase.from('devices').delete().eq('id', id);
-    if (!error) fetchDevices();
+    try {
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('devices')
+        .delete()
+        .eq('id', id);
+      if (!error) await fetchDevices();
+    } catch (e) {
+      console.error(e);
+    }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
@@ -70,11 +104,12 @@ export default function Dashboard() {
               placeholder="Extension 101, Reception Phone..."
               value={newDeviceName}
               onChange={(e) => setNewDeviceName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addDevice()}
             />
             <button
               className="px-8 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition disabled:opacity-50"
               onClick={addDevice}
-              disabled={loading || !newDeviceName}
+              disabled={loading || !newDeviceName.trim()}
             >
               {loading ? 'Adding...' : 'Add Device'}
             </button>
@@ -91,13 +126,22 @@ export default function Dashboard() {
 
           <div className="divide-y divide-gray-200">
             {devices.map((device) => (
-              <div key={device.id} className="p-6 flex items-center justify-between hover:bg-gray-50">
+              <div
+                key={device.id}
+                className="p-6 flex items-center justify-between hover:bg-gray-50"
+              >
                 <div className="flex items-center space-x-4">
-                  <div className={`w-3 h-3 rounded-full ${device.status ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      device.status ? 'bg-green-500' : 'bg-red-500'
+                    }`}
+                  />
                   <div>
                     <h3 className="font-semibold text-lg">{device.name}</h3>
                     <p className="text-sm text-gray-500">
-                      {device.created_at ? new Date(device.created_at).toLocaleString() : 'Just now'}
+                      {device.created_at
+                        ? new Date(device.created_at).toLocaleString()
+                        : 'Just now'}
                     </p>
                   </div>
                 </div>
