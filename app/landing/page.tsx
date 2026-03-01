@@ -71,23 +71,20 @@ export default function LandingPage() {
             <p className="mt-6 text-stone-400 text-sm">No credit card required · Set up in minutes</p>
           </div>
 
-          {/* Hero — two stacked photos */}
+          {/* Hero Photos */}
           <div className="relative flex flex-col gap-4">
-            <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-              <img
-                src="/kids_phone.png"
-                alt="Child happily talking on home phone"
-                className="w-full h-64 object-cover"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl overflow-hidden shadow-xl border-4 border-white">
+                <img src="/kids_phone.png" alt="Child on phone" className="w-full h-48 object-cover" />
+              </div>
+              <div className="rounded-2xl overflow-hidden shadow-xl border-4 border-white">
+                <img src="/grandparent_phone.png" alt="Grandparent on phone" className="w-full h-48 object-cover" />
+              </div>
             </div>
-            <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-              <img
-                src="/grandparent_phone.png"
-                alt="Grandmother smiling on home phone"
-                className="w-full h-64 object-cover"
-              />
+            <div className="rounded-2xl overflow-hidden shadow-xl border-4 border-white">
+              <img src="/international_split.png" alt="Family calling across the world" className="w-full h-48 object-cover object-top" />
             </div>
-            {/* Floating badge */}
+            {/* Floating badges */}
             <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-xl p-4 border border-stone-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-xl">📞</div>
@@ -130,7 +127,6 @@ export default function LandingPage() {
             <h2 className="text-4xl md:text-5xl font-bold text-stone-900 mt-2 mb-4">Made for the moments that matter</h2>
             <p className="text-stone-500 text-lg max-w-xl mx-auto">No matter where your people are, Ring Ring Club keeps you close.</p>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
@@ -144,22 +140,15 @@ export default function LandingPage() {
                 description: "A simple, familiar phone for grandparents who find smartphones confusing. One button to reach the grandkids. No apps. No passwords. Just love.",
               },
               {
-                image: null,
+                image: '/international_split.png',
                 title: 'International Families',
                 description: "Keep family ties strong across borders. Whether your loved ones are in Mexico, the Philippines, or Nigeria — staying in touch has never been simpler.",
-                emoji: '🌍',
               },
             ].map((item) => (
               <div key={item.title} className="bg-amber-50 rounded-2xl overflow-hidden border border-amber-100 hover:shadow-xl hover:border-amber-300 transition group">
-                {item.image ? (
-                  <div className="h-52 overflow-hidden">
-                    <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                  </div>
-                ) : (
-                  <div className="h-52 bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                    <span className="text-8xl">{item.emoji}</span>
-                  </div>
-                )}
+                <div className="h-52 overflow-hidden">
+                  <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                </div>
                 <div className="p-6">
                   <h3 className="text-xl font-bold text-stone-900 mb-2">{item.title}</h3>
                   <p className="text-stone-500 text-sm leading-relaxed">{item.description}</p>
