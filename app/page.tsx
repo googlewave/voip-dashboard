@@ -37,7 +37,7 @@ export default function Dashboard() {
   useEffect(() => {
     setMounted(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.push('/login');
+      if (!session) router.push('/landing');
       else {
         setUser(session.user);
         fetchDevices();
@@ -45,7 +45,7 @@ export default function Dashboard() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.push('/login');
+      if (!session) router.push('/landing');
       else setUser(session.user);
     });
 
@@ -125,7 +125,7 @@ export default function Dashboard() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    router.push('/landing');
   };
 
   if (!mounted || !user) return null;
