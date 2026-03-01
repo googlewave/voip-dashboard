@@ -40,22 +40,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-8">
       <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
-          VoIP Dashboard
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">VoIP Dashboard</h1>
         <p className="text-center text-gray-500 mb-8">
           {isSignUp ? 'Create your account' : 'Sign in to your account'}
         </p>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-            {error}
-          </div>
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>
         )}
         {message && (
-          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-sm">
-            {message}
-          </div>
+          <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg text-sm">{message}</div>
         )}
 
         <div className="space-y-4">
