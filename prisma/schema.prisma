@@ -1,0 +1,76 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["public"]
+}
+
+model User {
+  id               String   @id @default(uuid())
+  email            String   @unique
+  plan             String   @default("free")
+  twilioNumber     String?
+  twilioNumberSid  String?
+  stripeCustomerId String?
+  stripeSubId      String?
+  areaCode         String?
+  createdAt        DateTime @default(now())
+
+  @@schema("public")
+}
+
+model Device {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  phoneNumber String?
+  isOnline    Boolean  @default(true)
+  sipUsername String?  @unique
+  sipPassword String?
+  sipDomain   String?
+  adapterType String?
+  adapterIp   String?
+  createdAt   DateTime @default(now())
+
+  @@schema("public")
+}
+
+model Contact {
+  id            String   @id @default(uuid())
+  userId        String
+  name          String
+  phoneNumber   String
+  quickDialSlot Int?
+  sipAddress    String?
+  createdAt     DateTime @default(now())
+
+  @@schema("public")
+}
+
+model SipCredential {
+  id          String   @id @default(uuid())
+  userId      String
+  deviceId    String   @unique
+  twilioSid   String   @unique
+  sipUsername String   @unique
+  sipPassword String
+  createdAt   DateTime @default(now())
+
+  @@schema("public")
+}
+
+model CallLog {
+  id          String   @id @default(uuid())
+  userId      String
+  fromSip     String
+  toAddress   String
+  callType    String
+  duration    Int?
+  status      String
+  createdAt   DateTime @default(now())
+
+  @@schema("public")
+}

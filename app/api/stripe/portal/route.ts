@@ -1,0 +1,24 @@
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import { getUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+export async function POST() {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+
+  if (!dbUser?.stripeCustomerId) {
+    return NextResponse.json({ error: 'No billing account found' }, { status: 400 });
+  }
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer: dbUser.stripeCustomerId,
+    return_url: `${process.env.NEXT_PUBLIC_APP_URL}billing`,
+  });
+
+  return NextResponse.json({ url: session.url });
+}
