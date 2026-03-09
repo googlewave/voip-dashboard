@@ -79,6 +79,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const twilioNumber = user?.twilioNumber || '';
+
     if (user) {
       await prisma.callLog.create({
         data: {
@@ -94,7 +96,7 @@ export async function POST(req: Request) {
     return new NextResponse(
       `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial callerId="${user.twilioNumber || ''}">
+  <Dial callerId="${twilioNumber}">
     <Number>${to}</Number>
   </Dial>
 </Response>`,
