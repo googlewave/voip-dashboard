@@ -3,24 +3,26 @@ import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
 import { twilioClient } from '@/lib/twilio';
 
-export async function GET(_req: Request, { params }: { params: { deviceId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
+  const { deviceId } = await params;
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const cred = await prisma.sipCredential.findFirst({
-    where: { deviceId: params.deviceId, userId: user.id },
+    where: { deviceId: deviceId, userId: user.id },
   });
 
   if (!cred) return NextResponse.json({ error: 'No credentials found' }, { status: 404 });
   return NextResponse.json(cred);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { deviceId: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
+  const { deviceId } = await params;
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const cred = await prisma.sipCredential.findFirst({
-    where: { deviceId: params.deviceId, userId: user.id },
+    where: { deviceId: deviceId, userId: user.id },
   });
 
   if (!cred) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -36,7 +38,7 @@ export async function DELETE(_req: Request, { params }: { params: { deviceId: st
 
   await prisma.sipCredential.delete({ where: { id: cred.id } });
   await prisma.device.updateMany({
-    where: { id: params.deviceId, userId: user.id },
+    where: { id: deviceId, userId: user.id },
     data: { sipUsername: null, sipPassword: null, sipDomain: null },
   });
 

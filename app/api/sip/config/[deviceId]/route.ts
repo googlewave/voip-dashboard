@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
 
-export async function GET(_req: Request, { params }: { params: { deviceId: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
+  const { deviceId } = await params;
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const device = await prisma.device.findFirst({
-    where: { id: params.deviceId, userId: user.id },
+    where: { id: deviceId, userId: user.id },
   });
 
   if (!device) return NextResponse.json({ error: 'Device not found' }, { status: 404 });
