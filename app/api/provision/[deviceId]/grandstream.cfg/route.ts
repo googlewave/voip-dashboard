@@ -1,42 +1,28 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUser } from '@/lib/auth';
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ deviceId: string }> }
-) {
-  const { deviceId } = await params;
+export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
+	const { deviceId } = await params;
+	const user = await getUser();
+	if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const device = await prisma.device.findUnique({
-    where: { id: deviceId },
-  });
+	const device = await prisma.device.findFirst({ where: { id: deviceId, userId: user.id } });
+	if (!device) return NextResponse.json({ error: 'Device not found' }, { status: 404 });
+	if (!device.sipUsername || !device.sipPassword || !device.sipDomain) {
+		return NextResponse.json({ error: 'No SIP credentials provisioned yet' }, { status: 400 });
+	}
 
-  if (!device || !device.sipUsername) {
-    return new NextResponse('Device not found or not provisioned', { status: 404 });
-  }
+	const cfgLines = [
+		`; Generated Grandstream config for device ${device.id}`,
+		`account.1.display_name=${device.name}`,
+		`account.1.auth_name=${device.sipUsername}`,
+		`account.1.auth_pass=${device.sipPassword}`,
+		`account.1.sip_server=${device.sipDomain}`,
+		`account.1.enable_outbound_auth=1`,
+		`network.stun_server=stun.twilio.com:3478`,
+	];
 
-  const config = `
-P47 = ${device.sipDomain}
-P48 = ${device.sipDomain}
-P35 = ${device.sipUsername}
-P36 = ${device.sipUsername}
-P34 = ${device.sipPassword}
-P3 = ${device.sipDomain}
-P52 = 5060
-P53 = 5060
-P50 = 1
-P51 = stun.twilio.com
-P54 = 3478
-P84 = 0
-P85 = 0
-P706 = 1
-P27 = ${device.name}
-`.trim();
-
-  return new NextResponse(config, {
-    headers: {
-      'Content-Type': 'text/plain',
-      'Content-Disposition': `attachment; filename="grandstream.cfg"`,
-    },
-  });
+	const body = cfgLines.join('\n');
+	return new NextResponse(body, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }
