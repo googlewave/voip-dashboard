@@ -95,7 +95,6 @@ export default function Dashboard() {
     const { error } = await supabase
       .from('devices')
       .insert({ name: newDeviceName.trim(), status: false, user_id: user.id });
-      if (error) console.log('INSERT ERROR:', JSON.stringify(error));
     if (!error) {
       setNewDeviceName('');
       await fetchDevices();
