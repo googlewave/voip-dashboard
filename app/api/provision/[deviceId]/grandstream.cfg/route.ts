@@ -3,10 +3,12 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { deviceId: string } }
+  { params }: { params: Promise<{ deviceId: string }> }
 ) {
+  const { deviceId } = await params;
+
   const device = await prisma.device.findUnique({
-    where: { id: params.deviceId },
+    where: { id: deviceId },
   });
 
   if (!device || !device.sipUsername) {
