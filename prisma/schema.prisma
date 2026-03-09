@@ -36,6 +36,7 @@ model Device {
   createdAt   DateTime @default(now())
 
   @@map("devices")
+  @@schema("public")
 }
 
 model Contact {
