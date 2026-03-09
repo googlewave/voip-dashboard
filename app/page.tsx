@@ -172,6 +172,9 @@ export default function Dashboard() {
 
   if (!mounted || !user) return null;
 
+  console.log('SUPABASE URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log('SUPABASE KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 20));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-6xl mx-auto">
