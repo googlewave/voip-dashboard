@@ -11,35 +11,46 @@ function BillingContent() {
 
   useEffect(() => {
     fetch('/api/user/plan')
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
-      .then(d => setPlan(d.plan))
-      .catch(err => {
+      .then((d) => setPlan(d.plan))
+      .catch((err) => {
         console.error('Plan fetch error:', err);
         setPlan('free');
       });
   }, []);
 
   async function handleUpgrade() {
-    setLoading(true);
-    const res = await fetch('/api/stripe/checkout', { method: 'POST' });
-    const { url } = await res.json();
-    router.push(url);
+    try {
+      setLoading(true);
+      const res = await fetch('/api/stripe/checkout', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { url } = await res.json();
+      router.push(url);
+    } catch (err) {
+      console.error('Upgrade error:', err);
+      setLoading(false);
+    }
   }
 
   async function handleManage() {
-    setLoading(true);
-    const res = await fetch('/api/stripe/portal', { method: 'POST' });
-    const { url } = await res.json();
-    router.push(url);
+    try {
+      setLoading(true);
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { url } = await res.json();
+      router.push(url);
+    } catch (err) {
+      console.error('Manage error:', err);
+      setLoading(false);
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-2xl mx-auto">
-
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-bold text-gray-900">Billing</h1>
@@ -67,12 +78,18 @@ function BillingContent() {
         <div className="bg-white rounded-xl shadow-lg p-6">
           <p className="text-sm text-gray-500 mb-1">Current Plan</p>
           <p className="text-2xl font-semibold mb-6">
-            {plan === null ? 'Loading...' : plan === 'paid' ? '✅ Pro — $9.99/mo' : '🆓 Free'}
+            {plan === null
+              ? 'Loading...'
+              : plan === 'paid'
+              ? '✅ Pro — $9.99/mo'
+              : '🆓 Free'}
           </p>
 
           {plan === 'free' && (
             <div>
-              <p className="text-gray-600 mb-4 text-sm">Upgrade to Pro to unlock calling to real phone numbers.</p>
+              <p className="text-gray-600 mb-4 text-sm">
+                Upgrade to Pro to unlock calling to real phone numbers.
+              </p>
               <button
                 onClick={handleUpgrade}
                 disabled={loading}
@@ -85,7 +102,9 @@ function BillingContent() {
 
           {plan === 'paid' && (
             <div>
-              <p className="text-gray-600 mb-4 text-sm">Manage or cancel your subscription below.</p>
+              <p className="text-gray-600 mb-4 text-sm">
+                Manage or cancel your subscription below.
+              </p>
               <button
                 onClick={handleManage}
                 disabled={loading}
@@ -96,8 +115,21 @@ function BillingContent() {
             </div>
           )}
         </div>
-
       </div>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 text-gray-500">
+          Loading...
+        </div>
+      }
+    >
+      <BillingContent />
+    </Suspense>
   );
 }
