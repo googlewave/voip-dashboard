@@ -4,7 +4,7 @@ import { getUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function POST() {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-02-25.clover' });
 
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
