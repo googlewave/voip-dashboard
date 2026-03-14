@@ -1,55 +1,39 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["multiSchema"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["public"]
 }
 
 model User {
   id               String   @id @default(uuid())
   email            String   @unique
   plan             String   @default("free")
-  twilioNumber     String?
-  twilioNumberSid  String?
-  stripeCustomerId String?
-  stripeSubId      String?
-  areaCode         String?
-  createdAt        DateTime @default(now())
+  twilioNumber     String?  @map("twilio_number")
+  twilioNumberSid  String?  @map("twilio_number_sid")
+  stripeCustomerId String?  @map("stripe_customer_id")
+  stripeSubId      String?  @map("stripe_sub_id")
+  areaCode         String?  @map("area_code")
+  createdAt        DateTime @default(now()) @map("created_at")
 
-  @@schema("public")
   @@map("users")
 }
 
 model Device {
   id          String   @id @default(uuid())
-  userId      String
+  userId      String   @map("user_id")
   name        String
-  phoneNumber String?
-  isOnline    Boolean  @default(true)
-  sipUsername String?  @unique
-  sipPassword String?
-  sipDomain   String?
-  adapterType String?
-  adapterIp   String?
-  createdAt   DateTime @default(now())
+  phoneNumber String?  @map("phone_number")
+  isOnline    Boolean  @default(true) @map("status")
+  sipUsername String?  @unique @map("sip_username")
+  sipPassword String?  @map("sip_password")
+  sipDomain   String?  @map("sip_domain")
+  adapterType String?  @map("adapter_type")
+  adapterIp   String?  @map("adapter_ip")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("devices")
-  @@schema("public")
-}
-
-model Contact {
-  id            String   @id @default(uuid())
-  userId        String
-  name          String
-  phoneNumber   String
-  quickDialSlot Int?
-  sipAddress    String?
-  createdAt     DateTime @default(now())
-
-  @@schema("public")
 }
 
 model SipCredential {
@@ -61,18 +45,30 @@ model SipCredential {
   sipPassword String
   createdAt   DateTime @default(now())
 
-  @@schema("public")
+  @@map("sip_credentials")
+}
+
+model Contact {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  name          String
+  phoneNumber   String   @map("phone_number")
+  quickDialSlot Int?     @map("quick_dial_slot")
+  sipAddress    String?  @map("sip_address")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("contacts")
 }
 
 model CallLog {
-  id          String   @id @default(uuid())
-  userId      String
-  fromSip     String
-  toAddress   String
-  callType    String
-  duration    Int?
-  status      String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  fromSip   String   @map("from_sip")
+  toAddress String   @map("to_address")
+  callType  String   @map("call_type")
+  duration  Int?
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
 
-  @@schema("public")
+  @@map("call_logs")
 }
