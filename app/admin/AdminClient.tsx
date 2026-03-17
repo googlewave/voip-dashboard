@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 type Device = {
   id: string;
@@ -32,7 +32,7 @@ type User = {
 };
 
 export default function AdminClient({
-  users,
+  users: initialUsers,
   devices: initialDevices,
   contacts: initialContacts,
 }: {
@@ -40,6 +40,8 @@ export default function AdminClient({
   devices: Device[];
   contacts: Contact[];
 }) {
+  const router = useRouter();
+  const [users, setUsers] = useState<User[]>(initialUsers);
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const [results, setResults] = useState<{ [key: string]: { username: string; password: string } }>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -52,6 +54,47 @@ export default function AdminClient({
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
   const [newContact, setNewContact] = useState<{ [deviceId: string]: { name: string; phone: string; slot: string } }>({});
+
+  // Add User Modal
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({ email: '', password: '', plan: 'free' });
+  const [addingUser, setAddingUser] = useState(false);
+  const [addUserError, setAddUserError] = useState('');
+  const [addUserSuccess, setAddUserSuccess] = useState('');
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/landing');
+  };
+
+  const addUser = async () => {
+    if (!newUser.email.trim() || !newUser.password.trim()) return;
+    setAddingUser(true);
+    setAddUserError('');
+    setAddUserSuccess('');
+    try {
+      const res = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser),
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        setUsers((prev) => [data.user, ...prev]);
+        setAddUserSuccess(`✅ User ${data.user.email} created successfully!`);
+        setNewUser({ email: '', password: '', plan: 'free' });
+        setTimeout(() => {
+          setShowAddUser(false);
+          setAddUserSuccess('');
+        }, 2000);
+      } else {
+        setAddUserError(data.error ?? 'Failed to create user');
+      }
+    } catch (err: any) {
+      setAddUserError(err.message);
+    }
+    setAddingUser(false);
+  };
 
   const copyProvisionUrl = (deviceId: string) => {
     const url = `${window.location.origin}/api/provision/${deviceId}/linksys.cfg`;
@@ -222,10 +265,112 @@ export default function AdminClient({
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
-      <h1 className="text-3xl font-bold mb-2">Admin — Users & Devices</h1>
-      <p className="text-slate-400 text-sm mb-8">
-        {users.length} user(s) • {devices.length} device(s)
-      </p>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Admin — Users & Devices</h1>
+          <p className="text-slate-400 text-sm mt-1">
+            {users.length} user(s) • {devices.length} device(s)
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { setShowAddUser(true); setAddUserError(''); setAddUserSuccess(''); }}
+            className="px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-lg transition text-sm font-medium"
+          >
+            + Add User
+          </button>
+          <button
+            onClick={signOut}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition text-sm font-medium"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {/* Add User Modal */}
+      {showAddUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-md p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-white">Add New User</h2>
+              <button
+                onClick={() => setShowAddUser(false)}
+                className="text-slate-400 hover:text-white transition text-xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block font-medium">Email address</label>
+                <input
+                  type="email"
+                  placeholder="user@example.com"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 transition"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block font-medium">Password</label>
+                <input
+                  type="text"
+                  placeholder="Temporary password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 transition"
+                />
+                <p className="text-xs text-slate-500 mt-1">User can change this after first login</p>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block font-medium">Plan</label>
+                <select
+                  value={newUser.plan}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, plan: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 transition"
+                >
+                  <option value="free">Free</option>
+                  <option value="pro">Pro</option>
+                </select>
+              </div>
+
+              {addUserError && (
+                <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-3 py-2 text-sm">
+                  ❌ {addUserError}
+                </div>
+              )}
+
+              {addUserSuccess && (
+                <div className="bg-green-900/40 border border-green-700 text-green-300 rounded-lg px-3 py-2 text-sm">
+                  {addUserSuccess}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={addUser}
+                  disabled={addingUser || !newUser.email.trim() || !newUser.password.trim()}
+                  className="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-semibold py-2.5 rounded-lg transition"
+                >
+                  {addingUser ? 'Creating...' : 'Create User'}
+                </button>
+                <button
+                  onClick={() => setShowAddUser(false)}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-semibold py-2.5 rounded-lg transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         {users.map((u) => {
