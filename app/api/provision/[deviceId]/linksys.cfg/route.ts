@@ -28,7 +28,10 @@ export async function GET(
       select: { name: true, phoneNumber: true, quickDialSlot: true },
     });
 
-    const sipDomain = device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN!;
+    const rawDomain = device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN!;
+    // Strip any existing port so we can append :5061 cleanly
+    const sipDomain = rawDomain.replace(/:(\d+)$/, '');
+    const sipDomainWithPort = `${sipDomain}:5061`;
     const displayName = device.name ?? device.sipUsername;
 
     // Build speed dial XML entries (slots 1-9)
@@ -43,13 +46,16 @@ export async function GET(
     const config = `<?xml version="1.0" encoding="UTF-8"?>
 <flat-profile>
   <!-- Line 1 SIP Settings -->
-  <Proxy_1_>${sipDomain}</Proxy_1_>
-  <Outbound_Proxy_1_>${sipDomain}</Outbound_Proxy_1_>
-  <Registrar_1_>${sipDomain}</Registrar_1_>
+  <Proxy_1_>${sipDomainWithPort}</Proxy_1_>
+  <Outbound_Proxy_1_>${sipDomainWithPort}</Outbound_Proxy_1_>
+  <Registrar_1_>${sipDomainWithPort}</Registrar_1_>
   <Display_Name_1_>${displayName}</Display_Name_1_>
   <User_ID_1_>${device.sipUsername}</User_ID_1_>
   <Password_1_>${device.sipPassword}</Password_1_>
   <Auth_ID_1_>${device.sipUsername}</Auth_ID_1_>
+
+  <!-- Line Enable -->
+  <Line_Enable_1_>Yes</Line_Enable_1_>
 
   <!-- Registration -->
   <Register_1_>Yes</Register_1_>
@@ -69,7 +75,10 @@ export async function GET(
   <SIP_Port_1_>5061</SIP_Port_1_>
 
   <!-- SRTP -->
-  <SRTP_Method_1_>Secured</SRTP_Method_1_>
+  <SRTP_Method_1_>Optional</SRTP_Method_1_>
+
+  <!-- Dial Plan -->
+  <Dial_Plan_1_>(*xx|[3469]11|0|00|[2-9]xxxxxx|1xxx[2-9]xxxxxxS0|xxxxxxxxxxxx.)</Dial_Plan_1_>
 
   <!-- Speed Dial (Quick Dial Slots 1-9) -->
 ${speedDialEntries}
