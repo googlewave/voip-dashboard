@@ -30,6 +30,7 @@ export default async function AdminPage() {
       sipUsername: true,
       adapterType: true,
       adapterIp: true,
+      isOnline: true,
     },
   });
 
