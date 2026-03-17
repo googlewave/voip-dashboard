@@ -30,7 +30,7 @@ export async function GET(
 
     const rawDomain = device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN!;
     const sipDomain = rawDomain.replace(/:(\d+)$/, '');
-    const sipDomainWithPort = `${sipDomain}:5061`;
+    const sipDomainWithPort = `${sipDomain}:5060`;
     const displayName = device.name ?? device.sipUsername;
 
     const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
@@ -76,12 +76,12 @@ export async function GET(
   <NAT_Keep_Alive_Enable_1_>Yes</NAT_Keep_Alive_Enable_1_>
   <NAT_Keep_Alive_Intvl_1_>20</NAT_Keep_Alive_Intvl_1_>
 
-  <!-- SIP Transport -->
-  <SIP_Transport_1_>TLS</SIP_Transport_1_>
-  <SIP_Port_1_>5061</SIP_Port_1_>
+  <!-- SIP Transport — UDP for SPA1001 compatibility -->
+  <SIP_Transport_1_>UDP</SIP_Transport_1_>
+  <SIP_Port_1_>5060</SIP_Port_1_>
 
-  <!-- SRTP -->
-  <SRTP_Method_1_>Optional</SRTP_Method_1_>
+  <!-- SRTP disabled for UDP -->
+  <SRTP_Method_1_>Disabled</SRTP_Method_1_>
 
   <!-- Dial Plan -->
   <Dial_Plan_1_>(*xx|[3469]11|0|00|[2-9]xxxxxx|1xxx[2-9]xxxxxxS0|xxxxxxxxxxxx.)</Dial_Plan_1_>
