@@ -66,11 +66,10 @@ export default function LoginPage() {
     // ── Step 2 — send email OTP ──────────────────────────────
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: false },
     });
 
     if (otpError) {
-      setError('Could not send verification code. Please try again.');
+      setError(otpError.message);
       setLoading(false);
       return;
     }
@@ -79,28 +78,26 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-const handleOtp = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
+  const handleOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-  const { data, error } = await supabase.auth.verifyOtp({
-    email,
-    token: otp.replace(/\s/g, ''),
-    type: 'magiclink',
-  });
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp.replace(/\s/g, ''),
+      type: 'magiclink',
+    });
 
-  // 👇 Temporarily show the real Supabase error
-  if (error || !data.user) {
-    setError(error?.message ?? 'No user returned');
+    if (error || !data.user) {
+      setError(error?.message ?? 'No user returned — please try again.');
+      setLoading(false);
+      return;
+    }
+
+    redirectAfterAuth(data.user.email ?? '');
     setLoading(false);
-    return;
-  }
-
-  redirectAfterAuth(data.user.email ?? '');
-  setLoading(false);
-};
-
+  };
 
   return (
     <div className="min-h-screen bg-orange-50 flex flex-col">
@@ -286,12 +283,13 @@ const handleOtp = async (e: React.FormEvent) => {
                       type="button"
                       onClick={async () => {
                         setError('');
-                        await supabase.auth.signInWithOtp({
-                          email,
-                          options: { shouldCreateUser: false },
-                        });
-                        setSuccess('New code sent!');
-                        setTimeout(() => setSuccess(''), 3000);
+                        const { error } = await supabase.auth.signInWithOtp({ email });
+                        if (error) {
+                          setError(error.message);
+                        } else {
+                          setSuccess('New code sent!');
+                          setTimeout(() => setSuccess(''), 3000);
+                        }
                       }}
                       className="text-sm text-orange-500 hover:text-orange-600 font-semibold transition"
                     >
@@ -304,7 +302,7 @@ const handleOtp = async (e: React.FormEvent) => {
 
                   <button
                     type="button"
-                    onClick={() => { setStep('credentials'); setOtp(''); setError(''); }}
+                    onClick={() => { setStep('credentials'); setOtp(''); setError(''); setSuccess(''); }}
                     className="w-full py-2.5 text-stone-400 hover:text-stone-600 text-sm transition font-medium"
                   >
                     ← Use a different account
