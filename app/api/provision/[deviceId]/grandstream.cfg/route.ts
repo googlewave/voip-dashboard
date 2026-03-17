@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getUser } from '@/lib/auth';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = await params;
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const device = await prisma.device.findFirst({ where: { id: deviceId, userId: user.id } });
-  if (!device) return NextResponse.json({ error: 'Device not found' }, { status: 404 });
-  if (!device.sipUsername || !device.sipPassword || !device.sipDomain) {
-    return NextResponse.json({ error: 'No SIP credentials provisioned yet' }, { status: 400 });
+  const device = await prisma.device.findUnique({
+    where: { id: deviceId },
+    select: {
+      sipUsername: true,
+      sipPassword: true,
+      sipDomain: true,
+      name: true,
+    },
+  });
+
+  if (!device?.sipUsername || !device?.sipPassword || !device?.sipDomain) {
+    return new NextResponse('Device not found or SIP not provisioned', { status: 404 });
   }
 
   const contacts = await prisma.contact.findMany({
@@ -22,23 +27,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
   const sipDomain = device.sipDomain.replace(/:(\d+)$/, '');
   const displayName = device.name ?? device.sipUsername;
 
-  // Build outbound dial plan from approved contacts only
-  // Each approved number becomes an allowed pattern e.g. 12125551234
-  const approvedNumbers = contacts.map((c) =>
-    c.phoneNumber.replace(/\D/g, '') // strip non-digits
-  );
-
-  // Dial plan: only allow calls to approved numbers + emergency services
-  const approvedPatterns = approvedNumbers.map((n) => `${n}`).join('|');
-  const dialPlan = approvedPatterns.length > 0
-    ? `{ 911 | 933 | ${approvedPatterns} }`
+  // Outbound dial plan: approved numbers + emergency only
+  const approvedNumbers = contacts.map((c) => c.phoneNumber.replace(/\D/g, ''));
+  const dialPlan = approvedNumbers.length > 0
+    ? `{ 911 | 933 | ${approvedNumbers.join(' | ')} }`
     : `{ 911 | 933 }`;
 
-  // Speed dial slots 1-9 — P71 is off-hook auto dial, speed dials use P301–P309
+  // Speed dial slots 1–9
   const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
     const slot = i + 1;
     const contact = contacts.find((c) => c.quickDialSlot === slot);
-    const pCode = 300 + slot; // P301–P309 for HT801 speed dial
+    const pCode = 300 + slot;
     return contact
       ? `    <P${pCode}>${contact.phoneNumber.replace(/\D/g, '')}</P${pCode}>`
       : `    <P${pCode}></P${pCode}>`;
@@ -73,7 +72,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     <!-- Dial Plan Prefix: required by Twilio -->
     <P331>+</P331>
 
-    <!-- Accept SIP from proxy only: blocks unsolicited inbound at device level -->
+    <!-- Accept SIP from proxy only -->
     <P258>1</P258>
 
     <!-- Codecs: G.711u, G.711a, G.729 -->
@@ -85,4 +84,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     <P196>10000</P196>
     <P197>20000</P197>
 
-    <!-- SIP
+    <!-- SIP Transport: UDP -->
+    <P1361>0</P1361>
+
+    <!-- SRTP: Disabled -->
+    <P183>0</P183>
+
+    <!-- Speed Dial Slots 1-9 -->
+${speedDialEntries}
+
+    <!-- Disable auto-provisioning -->
+    <P194>0</P194>
+    <P238>2</P238>
+
+  </config>
+</gs_provision>`;
+
+  return new NextResponse(body, {
+    headers: {
+      'Content-Type': 'text/xml',
+      'Content-Disposition': `attachment; filename="grandstream.cfg"`,
+    },
+  });
+}
