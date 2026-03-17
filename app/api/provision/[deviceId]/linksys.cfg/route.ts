@@ -18,14 +18,27 @@ export async function GET(
       },
     });
 
-    if (!device || !device.sipUsername) {
-      return new NextResponse('Device not found or SIP not provisioned', {
-        status: 404,
-      });
+    if (!device?.sipUsername) {
+      return new NextResponse('Device not found or SIP not provisioned', { status: 404 });
     }
+
+    const contacts = await prisma.contact.findMany({
+      where: { deviceId, quickDialSlot: { not: null } },
+      orderBy: { quickDialSlot: 'asc' },
+      select: { name: true, phoneNumber: true, quickDialSlot: true },
+    });
 
     const sipDomain = device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN!;
     const displayName = device.name ?? device.sipUsername;
+
+    // Build speed dial XML entries (slots 1-9)
+    const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
+      const slot = i + 1;
+      const contact = contacts.find((c) => c.quickDialSlot === slot);
+      return contact
+        ? `  <Speed_Dial_${slot}_>${contact.name}, ${contact.phoneNumber}</Speed_Dial_${slot}_>`
+        : `  <Speed_Dial_${slot}_></Speed_Dial_${slot}_>`;
+    }).join('\n');
 
     const config = `<?xml version="1.0" encoding="UTF-8"?>
 <flat-profile>
@@ -57,6 +70,9 @@ export async function GET(
 
   <!-- SRTP -->
   <SRTP_Method_1_>Secured</SRTP_Method_1_>
+
+  <!-- Speed Dial (Quick Dial Slots 1-9) -->
+${speedDialEntries}
 </flat-profile>`;
 
     return new NextResponse(config, {

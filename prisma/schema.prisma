@@ -51,6 +51,7 @@ model SipCredential {
 model Contact {
   id            String   @id @default(uuid())
   userId        String   @map("user_id")
+  deviceId      String?  @map("device_id")
   name          String
   phoneNumber   String   @map("phone_number")
   quickDialSlot Int?     @map("quick_dial_slot")
