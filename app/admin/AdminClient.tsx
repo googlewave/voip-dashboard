@@ -165,14 +165,14 @@ export default function AdminClient({
     setAddingDevice(false);
   };
 
-  const provisionNumber = async (userId: string, areaCode: string) => {
+  const provisionNumber = async (userId: string, areaCode: string, e911?: object) => {
     setLoading((prev) => ({ ...prev, [`number_${userId}`]: true }));
     setErrors((prev) => ({ ...prev, [`number_${userId}`]: '' }));
     try {
       const res = await fetch('/api/admin/provision-number', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, areaCode }),
+        body: JSON.stringify({ userId, areaCode, e911 }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -263,6 +263,9 @@ export default function AdminClient({
     setLoading((prev) => ({ ...prev, [`toggle_${deviceId}`]: false }));
   };
 
+  const getVal = (id: string) =>
+    (document.getElementById(id) as HTMLInputElement)?.value?.trim() ?? '';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
 
@@ -303,7 +306,6 @@ export default function AdminClient({
                 ✕
               </button>
             </div>
-
             <div className="space-y-4">
               <div>
                 <label className="text-xs text-slate-400 mb-1 block font-medium">Email address</label>
@@ -315,7 +317,6 @@ export default function AdminClient({
                   className="w-full bg-slate-800 border border-slate-600 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500 transition"
                 />
               </div>
-
               <div>
                 <label className="text-xs text-slate-400 mb-1 block font-medium">Password</label>
                 <input
@@ -327,7 +328,6 @@ export default function AdminClient({
                 />
                 <p className="text-xs text-slate-500 mt-1">User can change this after first login</p>
               </div>
-
               <div>
                 <label className="text-xs text-slate-400 mb-1 block font-medium">Plan</label>
                 <select
@@ -339,19 +339,16 @@ export default function AdminClient({
                   <option value="pro">Pro</option>
                 </select>
               </div>
-
               {addUserError && (
                 <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-3 py-2 text-sm">
                   ❌ {addUserError}
                 </div>
               )}
-
               {addUserSuccess && (
                 <div className="bg-green-900/40 border border-green-700 text-green-300 rounded-lg px-3 py-2 text-sm">
                   {addUserSuccess}
                 </div>
               )}
-
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={addUser}
@@ -423,28 +420,85 @@ export default function AdminClient({
                         <span className="text-xs text-green-500">Active</span>
                       </div>
                     ) : (
-                      <div className="flex gap-2 items-end flex-wrap">
-                        <div>
-                          <label className="text-xs text-slate-400 mb-1 block">Area Code</label>
-                          <input
-                            type="text"
-                            maxLength={3}
-                            placeholder="e.g. 415"
-                            defaultValue={u.areaCode ?? ''}
-                            id={`area_${u.id}`}
-                            className="w-28 bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                          />
+                      <div className="space-y-3">
+                        <div className="flex gap-2 items-end flex-wrap">
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">Area Code</label>
+                            <input
+                              type="text"
+                              maxLength={3}
+                              placeholder="e.g. 302"
+                              defaultValue={u.areaCode ?? ''}
+                              id={`area_${u.id}`}
+                              className="w-24 bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">Customer Name</label>
+                            <input
+                              id={`e911_name_${u.id}`}
+                              type="text"
+                              placeholder="John Smith"
+                              className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-36"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">Street</label>
+                            <input
+                              id={`e911_street_${u.id}`}
+                              type="text"
+                              placeholder="123 Main St"
+                              className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-40"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">City</label>
+                            <input
+                              id={`e911_city_${u.id}`}
+                              type="text"
+                              placeholder="Philadelphia"
+                              className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-32"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">State</label>
+                            <input
+                              id={`e911_region_${u.id}`}
+                              type="text"
+                              placeholder="PA"
+                              maxLength={2}
+                              className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-16"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-slate-400 mb-1 block">ZIP</label>
+                            <input
+                              id={`e911_zip_${u.id}`}
+                              type="text"
+                              placeholder="19103"
+                              maxLength={5}
+                              className="bg-slate-800 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-24"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              provisionNumber(u.id, getVal(`area_${u.id}`), {
+                                customerName: getVal(`e911_name_${u.id}`),
+                                street: getVal(`e911_street_${u.id}`),
+                                city: getVal(`e911_city_${u.id}`),
+                                region: getVal(`e911_region_${u.id}`),
+                                postalCode: getVal(`e911_zip_${u.id}`),
+                              });
+                            }}
+                            disabled={loading[`number_${u.id}`]}
+                            className="text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded text-white font-medium transition self-end"
+                          >
+                            {loading[`number_${u.id}`] ? 'Provisioning...' : '+ Provision Number'}
+                          </button>
                         </div>
-                        <button
-                          onClick={() => {
-                            const el = document.getElementById(`area_${u.id}`) as HTMLInputElement;
-                            provisionNumber(u.id, el.value);
-                          }}
-                          disabled={loading[`number_${u.id}`]}
-                          className="text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded text-white font-medium transition"
-                        >
-                          {loading[`number_${u.id}`] ? 'Provisioning...' : '+ Provision Number'}
-                        </button>
+                        <p className="text-xs text-amber-400">
+                          🚨 E911 address required — without it Twilio charges $75 per 911 call
+                        </p>
                       </div>
                     )}
                     {errors[`number_${u.id}`] && (
@@ -711,7 +765,6 @@ export default function AdminClient({
                                   )}
                                 </div>
                               )}
-
                             </div>
                           );
                         })}
