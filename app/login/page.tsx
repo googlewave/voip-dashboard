@@ -87,7 +87,7 @@ export default function LoginPage() {
     const { data, error } = await supabase.auth.verifyOtp({
       email,
       token: otp.replace(/\s/g, ''),
-      type: 'email',
+      type: 'magiclink',   // ✅ matches the Magic Link template
     });
 
     if (error || !data.user) {
