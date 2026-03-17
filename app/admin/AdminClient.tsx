@@ -9,6 +9,7 @@ type Device = {
   sipUsername: string | null;
   adapterType: string | null;
   adapterIp: string | null;
+  isOnline: boolean;
 };
 
 type Contact = {
@@ -191,6 +192,32 @@ export default function AdminClient({
     }));
   };
 
+  const deleteDevice = async (deviceId: string) => {
+    if (!confirm('Delete this device and all its contacts? This cannot be undone.')) return;
+    setLoading((prev) => ({ ...prev, [`delete_${deviceId}`]: true }));
+    await fetch('/api/admin/devices', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId }),
+    });
+    setDevices((prev) => prev.filter((d) => d.id !== deviceId));
+    setContacts((prev) => prev.filter((c) => c.deviceId !== deviceId));
+    setLoading((prev) => ({ ...prev, [`delete_${deviceId}`]: false }));
+  };
+
+  const toggleDevice = async (deviceId: string, currentStatus: boolean) => {
+    setLoading((prev) => ({ ...prev, [`toggle_${deviceId}`]: true }));
+    await fetch('/api/admin/devices', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId, isOnline: !currentStatus }),
+    });
+    setDevices((prev) =>
+      prev.map((d) => d.id === deviceId ? { ...d, isOnline: !currentStatus } : d)
+    );
+    setLoading((prev) => ({ ...prev, [`toggle_${deviceId}`]: false }));
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
       <h1 className="text-3xl font-bold mb-2">Admin — Users & Devices</h1>
@@ -278,7 +305,7 @@ export default function AdminClient({
                     )}
                   </div>
 
-                  {/* Devices with per-device quick dial */}
+                  {/* Devices */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-slate-300">📱 Devices</h3>
@@ -348,14 +375,17 @@ export default function AdminClient({
 
                               {/* Device Row */}
                               <div className="px-4 py-3 flex items-center justify-between">
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    {d.name}{' '}
-                                    <span className="text-slate-400 text-xs">({d.adapterType ?? 'unknown'})</span>
-                                  </div>
-                                  <div className="text-xs text-slate-400 mt-0.5">
-                                    IP: {d.adapterIp ?? 'none'} • SIP: {d.sipUsername ?? 'not provisioned'} •{' '}
-                                    {deviceContacts.length} contact(s)
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full shrink-0 ${d.isOnline ? 'bg-green-400' : 'bg-slate-500'}`} />
+                                  <div>
+                                    <div className="text-sm font-medium">
+                                      {d.name}{' '}
+                                      <span className="text-slate-400 text-xs">({d.adapterType ?? 'unknown'})</span>
+                                    </div>
+                                    <div className="text-xs text-slate-400 mt-0.5">
+                                      IP: {d.adapterIp ?? 'none'} • SIP: {d.sipUsername ?? 'not provisioned'} •{' '}
+                                      {deviceContacts.length} contact(s)
+                                    </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -393,6 +423,24 @@ export default function AdminClient({
                                       {loading[d.id] ? 'Creating...' : 'Create SIP'}
                                     </button>
                                   )}
+                                  <button
+                                    onClick={() => toggleDevice(d.id, d.isOnline)}
+                                    disabled={loading[`toggle_${d.id}`]}
+                                    className={`text-xs disabled:opacity-50 px-3 py-1.5 rounded text-white font-medium transition ${
+                                      d.isOnline
+                                        ? 'bg-slate-600 hover:bg-slate-500'
+                                        : 'bg-green-700 hover:bg-green-600'
+                                    }`}
+                                  >
+                                    {loading[`toggle_${d.id}`] ? '...' : d.isOnline ? '⏸ Disable' : '▶ Enable'}
+                                  </button>
+                                  <button
+                                    onClick={() => deleteDevice(d.id)}
+                                    disabled={loading[`delete_${d.id}`]}
+                                    className="text-xs bg-red-800 hover:bg-red-700 disabled:opacity-50 px-3 py-1.5 rounded text-white font-medium transition"
+                                  >
+                                    {loading[`delete_${d.id}`] ? '...' : '🗑 Delete'}
+                                  </button>
                                 </div>
                               </div>
 
