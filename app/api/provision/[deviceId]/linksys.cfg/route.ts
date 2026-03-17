@@ -29,12 +29,10 @@ export async function GET(
     });
 
     const rawDomain = device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN!;
-    // Strip any existing port so we can append :5061 cleanly
     const sipDomain = rawDomain.replace(/:(\d+)$/, '');
     const sipDomainWithPort = `${sipDomain}:5061`;
     const displayName = device.name ?? device.sipUsername;
 
-    // Build speed dial XML entries (slots 1-9)
     const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
       const slot = i + 1;
       const contact = contacts.find((c) => c.quickDialSlot === slot);
@@ -60,10 +58,18 @@ export async function GET(
   <!-- Registration -->
   <Register_1_>Yes</Register_1_>
   <Register_Expires_1_>3600</Register_Expires_1_>
+  <Make_Call_Without_Reg_1_>No</Make_Call_Without_Reg_1_>
+  <Ans_Call_Without_Reg_1_>No</Ans_Call_Without_Reg_1_>
 
   <!-- Audio Codecs -->
   <Preferred_Codec_1_>G711u</Preferred_Codec_1_>
   <Use_Pref_Codec_Only_1_>No</Use_Pref_Codec_Only_1_>
+
+  <!-- RTP Audio Settings -->
+  <RTP_Port_Min_1_>10000</RTP_Port_Min_1_>
+  <RTP_Port_Max_1_>20000</RTP_Port_Max_1_>
+  <RTP_Packet_Size_1_>0.020</RTP_Packet_Size_1_>
+  <SIP_T1_Intvl_1_>1</SIP_T1_Intvl_1_>
 
   <!-- NAT Settings -->
   <NAT_Mapping_Enable_1_>Yes</NAT_Mapping_Enable_1_>
@@ -79,6 +85,10 @@ export async function GET(
 
   <!-- Dial Plan -->
   <Dial_Plan_1_>(*xx|[3469]11|0|00|[2-9]xxxxxx|1xxx[2-9]xxxxxxS0|xxxxxxxxxxxx.)</Dial_Plan_1_>
+
+  <!-- Regional Dial Tone (US) -->
+  <Dial_Tone>350@-19,440@-19;10(*/0/1+2)</Dial_Tone>
+  <Ring_Waveform>Sinusoid</Ring_Waveform>
 
   <!-- Speed Dial (Quick Dial Slots 1-9) -->
 ${speedDialEntries}
