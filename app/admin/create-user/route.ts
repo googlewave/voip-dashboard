@@ -19,11 +19,20 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // skip email verification
+      email_confirm: true,
     });
 
+    // 👇 Log full error object to Vercel logs
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Supabase createUser error:', JSON.stringify(error, null, 2));
+      return NextResponse.json(
+        { error: `Supabase error: ${error.message} (status: ${error.status})` },
+        { status: 400 }
+      );
+    }
+
+    if (!data?.user) {
+      return NextResponse.json({ error: 'No user returned from Supabase' }, { status: 500 });
     }
 
     // Create user record in Prisma
@@ -37,6 +46,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, user });
   } catch (err: any) {
+    console.error('Create user route error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
