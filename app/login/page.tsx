@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 // ✅ Add your admin emails here
-const ADMIN_EMAILS = ['you@yourdomain.com'];
+const ADMIN_EMAILS = ['bliuser@gmail.com','christophepoirrier@gmail.com'];
 
 type Mode = 'signin' | 'signup';
 
@@ -22,7 +22,7 @@ export default function LoginPage() {
     if (ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
       router.push('/admin');
     } else {
-      router.push('/dashboard');
+      router.push('/');
     }
   };
 
