@@ -79,26 +79,28 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+const handleOtp = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp.replace(/\s/g, ''),
-      type: 'magiclink',   // ✅ matches the Magic Link template
-    });
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token: otp.replace(/\s/g, ''),
+    type: 'magiclink',
+  });
 
-    if (error || !data.user) {
-      setError('Invalid or expired code. Please try again.');
-      setLoading(false);
-      return;
-    }
-
-    redirectAfterAuth(data.user.email ?? '');
+  // 👇 Temporarily show the real Supabase error
+  if (error || !data.user) {
+    setError(error?.message ?? 'No user returned');
     setLoading(false);
-  };
+    return;
+  }
+
+  redirectAfterAuth(data.user.email ?? '');
+  setLoading(false);
+};
+
 
   return (
     <div className="min-h-screen bg-orange-50 flex flex-col">
