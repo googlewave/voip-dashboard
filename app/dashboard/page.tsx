@@ -148,6 +148,7 @@ function DashboardInner() {
   const [newDeviceName, setNewDeviceName] = useState('');
   const [addingDevice, setAddingDevice] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState<string | null>(null);
+  const [deviceSettingsId, setDeviceSettingsId] = useState<string | null>(null);
 
   // Store / invoices
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -583,13 +584,27 @@ function DashboardInner() {
                             )}
                             <button
                               onClick={() => {
+                                const opening = deviceSettingsId !== device.id;
+                                setDeviceSettingsId(opening ? device.id : null);
+                                if (opening) applySelectedDevice(device);
+                              }}
+                              className={`px-4 py-2 font-bold rounded-xl transition text-sm ${
+                                deviceSettingsId === device.id
+                                  ? 'bg-stone-800 text-white'
+                                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                              }`}
+                            >
+                              Settings
+                            </button>
+                            <button
+                              onClick={() => {
                                 applySelectedDevice(device);
                                 setActiveTab('contacts');
                                 void fetchFriendDevices();
                               }}
                               className="px-4 py-2 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition text-sm"
                             >
-                              Manage
+                              Contacts
                             </button>
                             <button
                               onClick={() => deleteDevice(device.id)}
@@ -604,6 +619,97 @@ function DashboardInner() {
                         {showSetupGuide === device.id && device.sip_username && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             <SetupGuidePanel deviceId={device.id} />
+                          </div>
+                        )}
+
+                        {/* Device Settings (inline) */}
+                        {deviceSettingsId === device.id && selectedDevice?.id === device.id && (
+                          <div className="mt-4 pt-4 border-t border-stone-100 space-y-5">
+
+                            {/* Kill Switch */}
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="font-black text-stone-900">🔴 Digital Kill Switch</p>
+                                <p className="text-sm text-stone-500">Take the phone offline instantly. Back on just as fast.</p>
+                              </div>
+                              <button
+                                onClick={() => toggleDevice(device.id, device.status)}
+                                className={`shrink-0 px-5 py-2.5 font-bold rounded-xl transition text-sm ${
+                                  device.status ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-green-600 text-white hover:bg-green-700'
+                                }`}
+                              >
+                                {device.status ? 'Turn Off' : 'Turn On'}
+                              </button>
+                            </div>
+
+                            {/* Quiet Hours */}
+                            {isPaid && (
+                              <div className="space-y-3">
+                                <p className="font-black text-stone-900">🌙 Quiet Hours</p>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={quietHoursEnabled}
+                                    onChange={(e) => setQuietHoursEnabled(e.target.checked)}
+                                    className="w-5 h-5 rounded border-2 border-stone-300"
+                                  />
+                                  <span className="text-sm font-bold text-stone-700">Enable quiet hours</span>
+                                </label>
+                                {quietHoursEnabled && (
+                                  <div className="grid grid-cols-2 gap-3 pl-8">
+                                    <div>
+                                      <label className="block text-xs font-bold text-stone-700 mb-1">Start</label>
+                                      <input type="time" value={quietHoursStart} onChange={(e) => setQuietHoursStart(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-sm" />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-bold text-stone-700 mb-1">End</label>
+                                      <input type="time" value={quietHoursEnd} onChange={(e) => setQuietHoursEnd(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-sm" />
+                                    </div>
+                                  </div>
+                                )}
+                                <button onClick={saveQuietHours} disabled={savingQuietHours}
+                                  className="px-5 py-2 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50 text-sm">
+                                  {savingQuietHours ? 'Saving...' : 'Save Quiet Hours'}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Usage Cap */}
+                            {isPaid && (
+                              <div className="space-y-3">
+                                <p className="font-black text-stone-900">⏱️ Daily Usage Cap</p>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={usageCapEnabled}
+                                    onChange={(e) => setUsageCapEnabled(e.target.checked)}
+                                    className="w-5 h-5 rounded border-2 border-stone-300"
+                                  />
+                                  <span className="text-sm font-bold text-stone-700">Enable usage cap</span>
+                                </label>
+                                {usageCapEnabled && (
+                                  <div className="pl-8">
+                                    <label className="block text-xs font-bold text-stone-700 mb-1">Minutes per day</label>
+                                    <input type="number" min="1" max="1440" value={usageCapMinutes}
+                                      onChange={(e) => setUsageCapMinutes(parseInt(e.target.value))}
+                                      className="w-32 px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-sm" />
+                                  </div>
+                                )}
+                                <button onClick={saveUsageCap} disabled={savingUsageCap}
+                                  className="px-5 py-2 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50 text-sm">
+                                  {savingUsageCap ? 'Saving...' : 'Save Usage Cap'}
+                                </button>
+                              </div>
+                            )}
+
+                            {!isPaid && (
+                              <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200">
+                                <p className="text-sm text-amber-800"><strong>Quiet Hours and Usage Cap</strong> are available on paid plans.</p>
+                              </div>
+                            )}
+
                           </div>
                         )}
                       </div>
@@ -897,161 +1003,6 @@ function DashboardInner() {
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            
-            {selectedDevice ? (
-              <>
-                {/* Device Selector */}
-                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                  <label className="block text-sm font-bold text-stone-900 mb-2">Selected Device</label>
-                  <select
-                    value={selectedDevice.id}
-                    onChange={(e) => {
-                      const device = devices.find(d => d.id === e.target.value);
-                      if (device) setSelectedDevice(device);
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-medium"
-                  >
-                    {devices.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Kill Switch */}
-                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h2 className="text-lg font-black text-stone-900 mb-1">🔴 Digital Kill Switch</h2>
-                      <p className="text-sm text-stone-500">Take the phone offline instantly. Back on just as fast.</p>
-                    </div>
-                    <button
-                      onClick={() => toggleDevice(selectedDevice.id, selectedDevice.status)}
-                      className={`px-6 py-3 font-bold rounded-xl transition ${
-                        selectedDevice.status
-                          ? 'bg-red-600 text-white hover:bg-red-700'
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {selectedDevice.status ? 'Turn Off' : 'Turn On'}
-                    </button>
-                  </div>
-                  <div className={`px-4 py-3 rounded-xl ${
-                    selectedDevice.status ? 'bg-green-50 text-green-800' : 'bg-stone-50 text-stone-600'
-                  }`}>
-                    <p className="text-sm font-bold">
-                      {selectedDevice.status ? '✓ Device is online and can make/receive calls' : '○ Device is offline'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Quiet Hours */}
-                {isPaid && (
-                  <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                    <h2 className="text-lg font-black text-stone-900 mb-1">🌙 Quiet Hours</h2>
-                    <p className="text-sm text-stone-500 mb-6">Schedule silence during homework, dinner, or bedtime.</p>
-                    <div className="space-y-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={quietHoursEnabled}
-                          onChange={(e) => setQuietHoursEnabled(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-stone-300"
-                        />
-                        <span className="font-bold text-stone-900">Enable quiet hours</span>
-                      </label>
-                      {quietHoursEnabled && (
-                        <div className="grid grid-cols-2 gap-4 pl-8">
-                          <div>
-                            <label className="block text-sm font-bold text-stone-900 mb-2">Start time</label>
-                            <input
-                              type="time"
-                              value={quietHoursStart}
-                              onChange={(e) => setQuietHoursStart(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-bold text-stone-900 mb-2">End time</label>
-                            <input
-                              type="time"
-                              value={quietHoursEnd}
-                              onChange={(e) => setQuietHoursEnd(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      <button
-                        onClick={saveQuietHours}
-                        disabled={savingQuietHours}
-                        className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                      >
-                        {savingQuietHours ? 'Saving...' : 'Save Quiet Hours'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Usage Cap */}
-                {isPaid && (
-                  <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                    <h2 className="text-lg font-black text-stone-900 mb-1">⏱️ Daily Usage Cap</h2>
-                    <p className="text-sm text-stone-500 mb-6">Set daily talk limits when needed — and override them on snow days.</p>
-                    <div className="space-y-4">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={usageCapEnabled}
-                          onChange={(e) => setUsageCapEnabled(e.target.checked)}
-                          className="w-5 h-5 rounded border-2 border-stone-300"
-                        />
-                        <span className="font-bold text-stone-900">Enable usage cap</span>
-                      </label>
-                      {usageCapEnabled && (
-                        <div className="pl-8">
-                          <label className="block text-sm font-bold text-stone-900 mb-2">Minutes per day</label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="1440"
-                            value={usageCapMinutes}
-                            onChange={(e) => setUsageCapMinutes(parseInt(e.target.value))}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                          />
-                        </div>
-                      )}
-                      <button
-                        onClick={saveUsageCap}
-                        disabled={savingUsageCap}
-                        className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                      >
-                        {savingUsageCap ? 'Saving...' : 'Save Usage Cap'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!isPaid && (
-                  <div className="bg-amber-50 rounded-3xl p-6 border-2 border-amber-200">
-                    <h3 className="text-lg font-black text-amber-900 mb-2">Upgrade to unlock advanced features</h3>
-                    <p className="text-sm text-amber-800 mb-4">Quiet Hours and Usage Caps are available on paid plans.</p>
-                    <button
-                      onClick={() => router.push('/buy')}
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition"
-                    >
-                      Upgrade Now
-                    </button>
-                  </div>
-                )}
-
-              </>
-            ) : (
-              <div className="bg-white rounded-3xl p-16 border-2 border-stone-100 text-center">
-                <div className="text-6xl mb-4">⚙️</div>
-                <p className="text-xl font-black text-stone-900 mb-2">No device selected</p>
-                <p className="text-stone-500">Go to Devices tab to select a device first</p>
-              </div>
-            )}
 
             {/* E911 Address */}
             <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
@@ -1196,21 +1147,7 @@ function DashboardInner() {
         {activeTab === 'subscription' && (
           <div className="space-y-6">
 
-            {/* Phone Number */}
-            {profile?.twilio_number && (
-              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                <h2 className="text-lg font-black text-stone-900 mb-4">Your Ring Ring Number</h2>
-                <div className="flex items-center gap-4 p-5 bg-blue-50 rounded-2xl border-2 border-blue-200">
-                  <div className="text-3xl">📞</div>
-                  <div>
-                    <div className="text-2xl font-black text-blue-900 font-mono">{profile.twilio_number}</div>
-                    <p className="text-sm text-blue-700 mt-1">Your dedicated Ring Ring line</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Active Subscriptions */}
+            {/* Active Lines / Subscriptions */}
             <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
               <div className="p-6 border-b border-stone-100 flex items-center justify-between">
                 <h2 className="text-lg font-black text-stone-900">Active Lines</h2>
@@ -1224,7 +1161,7 @@ function DashboardInner() {
 
               {loadingSubscriptions ? (
                 <div className="p-12 text-center text-stone-400 text-sm">Loading…</div>
-              ) : subscriptions.length === 0 && !isPaid ? (
+              ) : !isPaid ? (
                 <div className="p-8 space-y-4">
                   <div className="p-5 bg-stone-50 rounded-2xl border-2 border-stone-200">
                     <div className="text-sm font-bold text-stone-500 uppercase tracking-wide mb-1">Starter Plan</div>
@@ -1239,9 +1176,9 @@ function DashboardInner() {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : subscriptions.length > 0 ? (
                 <div className="divide-y divide-stone-100">
-                  {subscriptions.map((sub) => (
+                  {subscriptions.map((sub, i) => (
                     <div key={sub.id} className="p-6">
                       <div className="flex items-start justify-between gap-4">
                         <div>
@@ -1259,6 +1196,10 @@ function DashboardInner() {
                               {sub.cancelAtPeriodEnd ? 'Cancels at period end' : sub.status}
                             </span>
                           </div>
+                          {/* Show the primary number on the first entry */}
+                          {i === 0 && profile?.twilio_number && (
+                            <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
+                          )}
                           <p className="text-sm text-stone-500">
                             {sub.cancelAtPeriodEnd ? 'Active until' : 'Renews'}{' '}
                             {new Date(sub.currentPeriodEnd * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
@@ -1276,6 +1217,33 @@ function DashboardInner() {
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : (
+                /* Paid but Stripe returned no subscriptions — show profile fallback */
+                <div className="p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-black text-stone-900">
+                          {profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}
+                        </span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
+                      </div>
+                      {profile?.twilio_number && (
+                        <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
+                      )}
+                      <p className="text-sm text-stone-500">{profile?.plan === 'annual' ? 'Annual plan' : 'Monthly plan'}</p>
+                    </div>
+                    {profile?.stripe_subscription_id && (
+                      <button
+                        onClick={() => void cancelSubscription(profile.stripe_subscription_id!)}
+                        disabled={cancellingSubId === profile.stripe_subscription_id}
+                        className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm disabled:opacity-50"
+                      >
+                        {cancellingSubId === profile.stripe_subscription_id ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
