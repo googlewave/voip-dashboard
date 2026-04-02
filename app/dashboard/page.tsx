@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { QRCodeSVG } from 'qrcode.react';
 import FriendsTab from './FriendsTab';
+import TrustedContactsManager from '@/components/TrustedContactsManager';
 
 interface Contact {
   id: string;
@@ -75,20 +76,6 @@ function DashboardInner() {
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [provisionDeviceId, setProvisionDeviceId] = useState<string | null>(null);
 
-  // Contact form
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactSlot, setNewContactSlot] = useState<string>('');
-  const [contactLoading, setContactLoading] = useState(false);
-  const [slotSwapModal, setSlotSwapModal] = useState<{
-    contactId: string;
-    slot: number;
-    existingContact: Contact;
-  } | null>(null);
-  const [draggedContactId, setDraggedContactId] = useState<string | null>(null);
-  const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
-  const [contactType, setContactType] = useState<'ring_ring_friend' | 'phone_number'>('ring_ring_friend');
-  const [selectedFriendDevice, setSelectedFriendDevice] = useState('');
   const [friendDevices, setFriendDevices] = useState<FriendDevice[]>([]);
 
   // Quiet Hours
@@ -231,126 +218,6 @@ function DashboardInner() {
     if (user) await fetchData(user.id);
   };
 
-  const addContact = async () => {
-    if (!selectedDevice || !user) return;
-    
-    // Validate based on contact type
-    if (contactType === 'ring_ring_friend') {
-      if (!newContactName.trim() || !selectedFriendDevice) return;
-    } else {
-      if (!newContactName.trim() || !newContactPhone.trim()) return;
-    }
-    
-    setContactLoading(true);
-
-    if (newContactSlot) {
-      await supabase
-        .from('contacts')
-        .update({ quick_dial_slot: null })
-        .eq('device_id', selectedDevice.id)
-        .eq('quick_dial_slot', parseInt(newContactSlot));
-    }
-
-    // Prepare contact data based on type
-    const contactData: {
-      device_id: string;
-      user_id: string;
-      name: string;
-      contact_type: 'ring_ring_friend' | 'phone_number';
-      quick_dial_slot: number | null;
-      sip_username?: string;
-      friend_device_id?: string;
-      friendship_id?: string;
-      phone_number?: string;
-    } = {
-      device_id: selectedDevice.id,
-      user_id: user.id,
-      name: newContactName.trim(),
-      contact_type: contactType,
-      quick_dial_slot: newContactSlot ? parseInt(newContactSlot) : null,
-    };
-
-    if (contactType === 'ring_ring_friend') {
-      // Get friend device details
-      const friendDevice = friendDevices.find(d => d.id === selectedFriendDevice);
-      if (friendDevice) {
-        contactData.sip_username = friendDevice.sip_username ?? undefined;
-        contactData.friend_device_id = friendDevice.id;
-        // Find friendship_id from friendDevices metadata
-        contactData.friendship_id = friendDevice.friendship_id;
-      }
-    } else {
-      contactData.phone_number = newContactPhone.trim();
-    }
-
-    await supabase.from('contacts').insert(contactData);
-
-    setNewContactName('');
-    setNewContactPhone('');
-    setNewContactSlot('');
-    setSelectedFriendDevice('');
-    setContactLoading(false);
-    if (user) await fetchData(user.id);
-  };
-
-  const deleteContact = async (contactId: string) => {
-    if (!confirm('Remove this contact?')) return;
-    await supabase.from('contacts').delete().eq('id', contactId);
-    if (user) await fetchData(user.id);
-  };
-
-  const applySlotAssignment = async (contactId: string, slot: number, displacedContactId?: string) => {
-    if (!selectedDevice || !user) return;
-    setContactLoading(true);
-
-    if (displacedContactId) {
-      await supabase
-        .from('contacts')
-        .update({ quick_dial_slot: null })
-        .eq('id', displacedContactId);
-    }
-
-    await supabase
-      .from('contacts')
-      .update({ quick_dial_slot: slot })
-      .eq('id', contactId);
-
-    await fetchData(user.id);
-    setContactLoading(false);
-  };
-
-  const clearSlot = async (contactId: string) => {
-    if (!user) return;
-    setContactLoading(true);
-    await supabase.from('contacts').update({ quick_dial_slot: null }).eq('id', contactId);
-    await fetchData(user.id);
-    setContactLoading(false);
-  };
-
-  const requestSlotAssignment = (contactId: string, slot: number) => {
-    const existing = selectedContacts.find((c) => c.quick_dial_slot === slot && c.id !== contactId);
-    if (existing) {
-      setSlotSwapModal({ contactId, slot, existingContact: existing });
-      return;
-    }
-    void applySlotAssignment(contactId, slot);
-  };
-
-  const handleContactDragStart = (contactId: string) => {
-    setDraggedContactId(contactId);
-  };
-
-  const handleSlotDragOver = (slot: number) => {
-    setDragOverSlot(slot);
-  };
-
-  const handleSlotDrop = (slot: number) => {
-    if (!draggedContactId) return;
-    requestSlotAssignment(draggedContactId, slot);
-    setDraggedContactId(null);
-    setDragOverSlot(null);
-  };
-
   const saveQuietHours = async () => {
     if (!selectedDevice) return;
     setSavingQuietHours(true);
@@ -388,13 +255,6 @@ function DashboardInner() {
   if (!user) return null;
 
   const isPaid = profile?.plan === 'monthly' || profile?.plan === 'annual';
-  const selectedContacts = selectedDevice?.contacts ?? [];
-  const safeContacts = [...selectedContacts].sort((a, b) => a.name.localeCompare(b.name));
-  const quickDialSlots = Array.from({ length: 9 }, (_, i) => ({
-    slot: i + 1,
-    contact: selectedContacts.find((c) => c.quick_dial_slot === i + 1) ?? null,
-  }));
-  const assignedSlotCount = quickDialSlots.filter(({ contact }) => contact !== null).length;
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -557,7 +417,7 @@ function DashboardInner() {
         {/* Contacts Tab */}
         {activeTab === 'contacts' && (
           <div className="space-y-6">
-            
+
             {selectedDevice ? (
               <>
                 {/* Device Selector */}
@@ -566,7 +426,7 @@ function DashboardInner() {
                   <select
                     value={selectedDevice.id}
                     onChange={(e) => {
-                      const device = devices.find(d => d.id === e.target.value);
+                      const device = devices.find((d) => d.id === e.target.value);
                       if (device) applySelectedDevice(device);
                     }}
                     className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-medium"
@@ -577,286 +437,22 @@ function DashboardInner() {
                   </select>
                 </div>
 
-                {/* Safe Dial Dashboard */}
-                <div className="bg-[#1f2229] rounded-3xl p-6 border-2 border-slate-700 text-slate-100">
-                  <div className="flex items-start justify-between mb-5">
-                    <div>
-                      <h2 className="text-xl font-black">Safe Dial Dashboard</h2>
-                      <p className="text-xs text-slate-400 mt-1">Safe list is always allowed inbound. Only keys 1–9 are assignable for outgoing quick dial.</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wider text-slate-400">Active Dials</p>
-                      <p className="text-xl font-black">{assignedSlotCount} / 9</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    <div className="lg:col-span-1 rounded-2xl bg-slate-800/70 border border-slate-600 p-4">
-                      <h3 className="font-bold mb-3">Safe Contacts</h3>
-                      <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                        {safeContacts.map((contact) => (
-                          <div
-                            key={contact.id}
-                            draggable
-                            onDragStart={() => handleContactDragStart(contact.id)}
-                            onDragEnd={() => setDraggedContactId(null)}
-                            className="rounded-xl border border-slate-600 bg-slate-900/70 p-3 cursor-grab active:cursor-grabbing"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="font-semibold truncate">{contact.name}</p>
-                                <p className="text-xs text-slate-400 truncate">
-                                  {contact.contact_type === 'ring_ring_friend' ? (contact.sip_username || 'Ring Ring Friend') : (contact.phone_number || contact.phone || 'No number')}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <select
-                                  value={contact.quick_dial_slot ?? ''}
-                                  onChange={(e) => {
-                                    const slot = e.target.value ? parseInt(e.target.value) : null;
-                                    if (slot === null) {
-                                      void clearSlot(contact.id);
-                                    } else {
-                                      requestSlotAssignment(contact.id, slot);
-                                    }
-                                  }}
-                                  className="bg-slate-700 border border-slate-500 rounded px-2 py-1 text-xs"
-                                  disabled={contactLoading}
-                                >
-                                  <option value="">No key</option>
-                                  {Array.from({ length: 9 }, (_, i) => i + 1).map((slot) => (
-                                    <option key={slot} value={slot}>Key {slot}</option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {safeContacts.length === 0 && (
-                          <p className="text-sm text-slate-400">No contacts yet.</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="lg:col-span-2 rounded-2xl bg-[#0b1220] border border-slate-700 p-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        {quickDialSlots.map(({ slot, contact }) => (
-                          <div
-                            key={slot}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              handleSlotDragOver(slot);
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              handleSlotDrop(slot);
-                            }}
-                            onDragLeave={() => setDragOverSlot((current) => (current === slot ? null : current))}
-                            className={`aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center px-2 text-center transition ${
-                              dragOverSlot === slot ? 'border-[#C4531A] bg-[#C4531A]/10' : 'border-slate-600'
-                            }`}
-                          >
-                            <div className="text-2xl font-black text-slate-300">{slot}</div>
-                            {contact ? (
-                              <>
-                                <p className="text-xs font-bold mt-1 truncate w-full">{contact.name}</p>
-                                <p className="text-[10px] text-slate-400 truncate w-full">{contact.contact_type === 'ring_ring_friend' ? 'Ring Ring Friend' : (contact.phone_number || contact.phone)}</p>
-                              </>
-                            ) : (
-                              <p className="text-[10px] text-slate-500 mt-1">Unassigned</p>
-                            )}
-                          </div>
-                        ))}
-                        <div className="aspect-square rounded-2xl border border-slate-700 text-slate-500 flex items-center justify-center text-2xl font-black">*</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+                {/* Trusted Contacts Manager */}
                 <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                    <h2 className="text-lg font-black text-stone-900 mb-4">Add Contact</h2>
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        onClick={() => setContactType('ring_ring_friend')}
-                        className={`flex-1 px-4 py-3 rounded-xl font-bold transition ${
-                          contactType === 'ring_ring_friend'
-                            ? 'bg-[#C4531A] text-white'
-                            : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                        }`}
-                      >
-                        👥 Ring Ring Friend (Free)
-                      </button>
-                      <button
-                        onClick={() => setContactType('phone_number')}
-                        disabled={profile?.plan === 'free'}
-                        className={`flex-1 px-4 py-3 rounded-xl font-bold transition ${
-                          contactType === 'phone_number' && profile?.plan !== 'free'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-stone-100 text-stone-400'
-                        }`}
-                      >
-                        📞 Phone Number {profile?.plan === 'free' && '(Paid Plan)'}
-                      </button>
-                    </div>
-
-                  {/* Contact Form */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <input
-                      className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                      placeholder="Name"
-                      value={newContactName}
-                      onChange={(e) => setNewContactName(e.target.value)}
-                    />
-                    
-                    {contactType === 'ring_ring_friend' ? (
-                      <select
-                        value={selectedFriendDevice}
-                        onChange={(e) => setSelectedFriendDevice(e.target.value)}
-                        className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                      >
-                        <option value="">Select friend device</option>
-                        {friendDevices.map((device) => (
-                          <option key={device.id} value={device.id}>
-                            {device.name} ({device.friend_email})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                        placeholder="Phone number"
-                        value={newContactPhone}
-                        onChange={(e) => setNewContactPhone(e.target.value)}
-                        disabled={profile?.plan === 'free'}
-                      />
-                    )}
-                    
-                    <select
-                      value={newContactSlot}
-                      onChange={(e) => setNewContactSlot(e.target.value)}
-                      className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                    >
-                      <option value="">No quick dial</option>
-                      {quickDialSlots.map(({ slot, contact }) => (
-                        <option key={slot} value={slot}>
-                          Key {slot}{contact ? ' (taken)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={addContact}
-                      disabled={
-                        contactLoading ||
-                        !newContactName.trim() ||
-                        (contactType === 'ring_ring_friend' ? !selectedFriendDevice : !newContactPhone.trim())
-                      }
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                    >
-                      {contactLoading ? 'Adding...' : 'Add'}
-                    </button>
-                  </div>
-                  
-                  {/* Helper Text */}
-                  {contactType === 'ring_ring_friend' && friendDevices.length === 0 && (
-                    <p className="text-sm text-amber-700 mt-3 p-3 bg-amber-50 rounded-xl">
-                      💡 No friends yet. Go to Friends tab to connect with another family.
-                    </p>
-                  )}
+                  <TrustedContactsManager
+                    deviceId={selectedDevice.id}
+                    userId={user.id}
+                    deviceName={selectedDevice.name}
+                    friendDevices={friendDevices}
+                    isPaid={isPaid}
+                  />
                 </div>
-
-                {/* Contact List */}
-                <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-                  <div className="p-6 border-b border-stone-100">
-                    <h2 className="text-lg font-black text-stone-900">All Contacts ({selectedContacts.length})</h2>
-                  </div>
-                  {selectedContacts.length === 0 ? (
-                    <div className="p-12 text-center">
-                      <div className="text-5xl mb-4">👥</div>
-                      <p className="text-stone-500 text-lg font-medium">No contacts yet</p>
-                      <p className="text-stone-400 text-sm mt-1">Add your first contact above</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-stone-100">
-                      {selectedContacts.map((contact) => (
-                        <div key={contact.id} className="p-6 flex items-center justify-between hover:bg-stone-50">
-                          <div className="flex items-center gap-4">
-                            {contact.quick_dial_slot !== null && (
-                              <span className="w-8 h-8 rounded-full bg-[#C4531A] text-white font-black text-sm flex items-center justify-center">
-                                {contact.quick_dial_slot}
-                              </span>
-                            )}
-                            <div>
-                              <p className="font-black text-stone-900">{contact.name}</p>
-                              <p className="text-sm text-stone-500 font-mono">{contact.phone}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <select
-                              value={contact.quick_dial_slot ?? ''}
-                              onChange={(e) => {
-                                const slot = e.target.value ? parseInt(e.target.value) : null;
-                                if (slot === null) {
-                                  void clearSlot(contact.id);
-                                } else {
-                                  requestSlotAssignment(contact.id, slot);
-                                }
-                              }}
-                              className="px-3 py-2 rounded-lg border-2 border-stone-200 text-sm font-medium focus:border-[#C4531A] outline-none"
-                            >
-                              <option value="">No slot</option>
-                              {Array.from({ length: 9 }, (_, i) => i + 1).map((s) => (
-                                <option key={s} value={s}>Key {s}</option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => deleteContact(contact.id)}
-                              className="px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {slotSwapModal && (
-                  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md border border-stone-200">
-                      <h3 className="text-lg font-black text-stone-900">Swap quick dial assignment?</h3>
-                      <p className="text-sm text-stone-600 mt-2">
-                        Key {slotSwapModal.slot} is currently assigned to <span className="font-bold">{slotSwapModal.existingContact.name}</span>.
-                        Replace it with your selected contact?
-                      </p>
-                      <div className="flex justify-end gap-2 mt-5">
-                        <button
-                          onClick={() => setSlotSwapModal(null)}
-                          className="px-4 py-2 rounded-lg bg-stone-100 text-stone-700 font-semibold"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const payload = slotSwapModal;
-                            setSlotSwapModal(null);
-                            await applySlotAssignment(payload.contactId, payload.slot, payload.existingContact.id);
-                          }}
-                          className="px-4 py-2 rounded-lg bg-[#C4531A] text-white font-semibold"
-                        >
-                          Swap & Assign
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
               </>
             ) : (
               <div className="bg-white rounded-3xl p-16 border-2 border-stone-100 text-center">
                 <div className="text-6xl mb-4">📞</div>
                 <p className="text-xl font-black text-stone-900 mb-2">No device selected</p>
-                <p className="text-stone-500">Go to Devices tab to add or select a device first</p>
+                <p className="text-stone-500">Go to Devices tab and click Manage on a device</p>
               </div>
             )}
 

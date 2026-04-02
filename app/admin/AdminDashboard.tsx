@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
+import TrustedContactsManager from '@/components/TrustedContactsManager';
 
 type User = {
   id: string;
@@ -45,7 +46,7 @@ type Contact = {
   sip_username?: string | null;
 };
 
-type Tab = 'my-account' | 'users' | 'billing' | 'system';
+type Tab = 'users' | 'billing' | 'system';
 
 export default function AdminDashboard({
   initialUsers,
@@ -59,12 +60,10 @@ export default function AdminDashboard({
   adminUser: { id: string; email: string };
 }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('my-account');
+  const [activeTab, setActiveTab] = useState<Tab>('users');
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
@@ -74,21 +73,6 @@ export default function AdminDashboard({
   const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [editDeviceForm, setEditDeviceForm] = useState({ name: '', macAddress: '', adapterType: '' });
-
-  // My Account (admin as user)
-  const [myDevices, setMyDevices] = useState<Device[]>(() => initialDevices.filter((device) => device.userId === adminUser.id));
-  const [myContacts, setMyContacts] = useState<Contact[]>(() => initialContacts.filter((contact) => contact.userId === adminUser.id));
-  const [newDeviceName, setNewDeviceName] = useState('');
-  const [newContactName, setNewContactName] = useState('');
-  const [newContactPhone, setNewContactPhone] = useState('');
-  const [newContactSlot, setNewContactSlot] = useState('');
-  const [mySlotSwapModal, setMySlotSwapModal] = useState<{
-    contactId: string;
-    slot: number;
-    existingContact: Contact;
-  } | null>(null);
-  const [draggedMyContactId, setDraggedMyContactId] = useState<string | null>(null);
-  const [myDragOverSlot, setMyDragOverSlot] = useState<number | null>(null);
 
   // User Management
   const [showAddUser, setShowAddUser] = useState(false);
@@ -123,165 +107,12 @@ export default function AdminDashboard({
   const [addDeviceUserId, setAddDeviceUserId] = useState<string | null>(null);
   const [addDeviceForm, setAddDeviceForm] = useState({ name: '', adapterType: 'grandstream', macAddress: '' });
 
-  async function fetchMyData() {
-    const { data: devicesData } = await supabase
-      .from('devices')
-      .select('*')
-      .eq('user_id', adminUser.id);
-    
-    const { data: contactsData } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('user_id', adminUser.id);
-
-    if (devicesData) {
-      setMyDevices(devicesData.map((d) => ({
-        ...d,
-        userId: d.user_id,
-        status: d.status,
-        sipUsername: d.sip_username,
-        sipPassword: d.sip_password,
-        sipDomain: d.sip_domain,
-        macAddress: d.mac_address,
-        adapterType: d.adapter_type,
-        adapterIp: d.adapter_ip,
-        quietHoursEnabled: d.quiet_hours_enabled,
-        quietHoursStart: d.quiet_hours_start,
-        quietHoursEnd: d.quiet_hours_end,
-        usageCapEnabled: d.usage_cap_enabled,
-        usageCapMinutes: d.usage_cap_minutes,
-      })));
-    }
-
-    if (contactsData) {
-      setMyContacts(contactsData.map((c) => ({
-        ...c,
-        userId: c.user_id,
-        deviceId: c.device_id,
-        phone: c.phone_number,
-        quickDialSlot: c.quick_dial_slot,
-        contact_type: c.contact_type,
-        sip_username: c.sip_username,
-      })));
-    }
-  }
-
   const refreshData = async () => {
     const res = await fetch('/api/admin/data');
     const data = await res.json();
     setUsers(data.users);
     setDevices(data.devices);
     setContacts(data.contacts);
-    await fetchMyData();
-  };
-
-  const addMyDevice = async () => {
-    if (!newDeviceName.trim()) return;
-    setLoading({ ...loading, add_my_device: true });
-    await supabase.from('devices').insert({
-      name: newDeviceName.trim(),
-      status: false,
-      user_id: adminUser.id,
-      quiet_hours_enabled: false,
-      usage_cap_enabled: false,
-    });
-    setNewDeviceName('');
-    await fetchMyData();
-    setLoading({ ...loading, add_my_device: false });
-  };
-
-  const toggleMyDevice = async (deviceId: string, currentStatus: boolean) => {
-    await supabase.from('devices').update({ status: !currentStatus }).eq('id', deviceId);
-    await fetchMyData();
-  };
-
-  const deleteMyDevice = async (deviceId: string) => {
-    if (!confirm('Delete this device?')) return;
-    await supabase.from('contacts').delete().eq('device_id', deviceId);
-    await supabase.from('devices').delete().eq('id', deviceId);
-    await fetchMyData();
-  };
-
-  const addMyContact = async () => {
-    if (!newContactName.trim() || !newContactPhone.trim() || !selectedDevice) return;
-    setLoading({ ...loading, add_my_contact: true });
-
-    if (newContactSlot) {
-      await supabase
-        .from('contacts')
-        .update({ quick_dial_slot: null })
-        .eq('device_id', selectedDevice.id)
-        .eq('quick_dial_slot', parseInt(newContactSlot));
-    }
-
-    await supabase.from('contacts').insert({
-      device_id: selectedDevice.id,
-      user_id: adminUser.id,
-      name: newContactName.trim(),
-      phone_number: newContactPhone.trim(),
-      quick_dial_slot: newContactSlot ? parseInt(newContactSlot) : null,
-    });
-
-    setNewContactName('');
-    setNewContactPhone('');
-    setNewContactSlot('');
-    await fetchMyData();
-    setLoading({ ...loading, add_my_contact: false });
-  };
-
-  const deleteMyContact = async (contactId: string) => {
-    if (!confirm('Remove this contact?')) return;
-    await supabase.from('contacts').delete().eq('id', contactId);
-    await fetchMyData();
-  };
-
-  const applyMySlotAssignment = async (contactId: string, slot: number, displacedContactId?: string) => {
-    if (!selectedDevice) return;
-    setLoading({ ...loading, my_slot_assign: true });
-
-    if (displacedContactId) {
-      await supabase.from('contacts').update({ quick_dial_slot: null }).eq('id', displacedContactId);
-    }
-
-    await supabase.from('contacts').update({ quick_dial_slot: slot }).eq('id', contactId);
-    await fetchMyData();
-    setLoading({ ...loading, my_slot_assign: false });
-  };
-
-  const clearMySlot = async (contactId: string) => {
-    setLoading({ ...loading, my_slot_assign: true });
-    await supabase.from('contacts').update({ quick_dial_slot: null }).eq('id', contactId);
-    await fetchMyData();
-    setLoading({ ...loading, my_slot_assign: false });
-  };
-
-  const requestMySlotAssignment = (contactId: string, slot: number) => {
-    const existing = myDeviceContacts.find((c) => c.quickDialSlot === slot && c.id !== contactId);
-    if (existing) {
-      setMySlotSwapModal({ contactId, slot, existingContact: existing });
-      return;
-    }
-    void applyMySlotAssignment(contactId, slot);
-  };
-
-  const handleMyContactDragStart = (contactId: string) => {
-    setDraggedMyContactId(contactId);
-  };
-
-  const handleMyContactDragEnd = () => {
-    setDraggedMyContactId(null);
-    setMyDragOverSlot(null);
-  };
-
-  const handleMySlotDragOver = (slot: number) => {
-    setMyDragOverSlot(slot);
-  };
-
-  const handleMySlotDrop = (slot: number) => {
-    if (!draggedMyContactId) return;
-    requestMySlotAssignment(draggedMyContactId, slot);
-    setDraggedMyContactId(null);
-    setMyDragOverSlot(null);
   };
 
   const addUser = async () => {
@@ -546,15 +377,6 @@ export default function AdminDashboard({
     setLoading((prev) => ({ ...prev, [`delete_user_${userId}`]: false }));
   };
 
-  const myDeviceContacts = selectedDevice
-    ? myContacts.filter((c) => c.deviceId === selectedDevice.id)
-    : [];
-
-  const quickDialSlots = Array.from({ length: 9 }, (_, i) => ({
-    slot: i + 1,
-    contact: myDeviceContacts.find((c) => c.quickDialSlot === i + 1) ?? null,
-  }));
-  const activeDials = quickDialSlots.filter(({ contact }) => contact !== null).length;
 
 
   return (
@@ -568,13 +390,13 @@ export default function AdminDashboard({
               ⚡ Admin Portal
             </button>
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-orange-100">
-              {(['my-account', 'users', 'billing', 'system'] as Tab[]).map((tab) => (
+              {(['users', 'billing', 'system'] as Tab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`capitalize transition ${activeTab === tab ? 'text-white font-bold' : 'hover:text-white'}`}
                 >
-                  {tab === 'my-account' ? 'My Account' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
             </nav>
@@ -601,302 +423,6 @@ export default function AdminDashboard({
         {cleanupResult && (
           <div className="mb-6 px-4 py-3 rounded-xl bg-white border-2 border-stone-200 text-sm font-medium">
             {cleanupResult}
-          </div>
-        )}
-
-        {/* My Account Tab */}
-        {activeTab === 'my-account' && (
-          <div className="space-y-6">
-            
-            <div className="bg-amber-50 rounded-3xl p-6 border-2 border-amber-200">
-              <h2 className="text-lg font-black text-amber-900 mb-2">👤 Your Personal Account</h2>
-              <p className="text-sm text-amber-800">
-                Manage your own devices and contacts as a Ring Ring user. This is your personal account, separate from admin functions.
-              </p>
-            </div>
-
-            {/* Add My Device */}
-            <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-              <h2 className="text-lg font-black text-stone-900 mb-4">Add Your Device</h2>
-              <div className="flex gap-3">
-                <input
-                  className="flex-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                  placeholder="Device name"
-                  value={newDeviceName}
-                  onChange={(e) => setNewDeviceName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addMyDevice()}
-                />
-                <button
-                  onClick={addMyDevice}
-                  disabled={loading.add_my_device || !newDeviceName.trim()}
-                  className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                >
-                  {loading.add_my_device ? 'Adding...' : 'Add'}
-                </button>
-              </div>
-            </div>
-
-            {/* My Devices */}
-            <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-              <div className="p-6 border-b border-stone-100">
-                <h2 className="text-lg font-black text-stone-900">Your Devices ({myDevices.length})</h2>
-              </div>
-              {myDevices.length === 0 ? (
-                <div className="p-12 text-center text-stone-500">No devices yet</div>
-              ) : (
-                <div className="divide-y divide-stone-100">
-                  {myDevices.map((device) => (
-                    <div key={device.id} className="p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={() => toggleMyDevice(device.id, device.status)}
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
-                              device.status ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'
-                            }`}
-                          >
-                            {device.status ? '✓' : '○'}
-                          </button>
-                          <div>
-                            <h3 className="font-black text-stone-900">{device.name}</h3>
-                            <p className="text-sm text-stone-500">
-                              {device.sipUsername ? `SIP: ${device.sipUsername}` : 'No SIP'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setSelectedDevice(device)}
-                            className="px-4 py-2 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition text-sm"
-                          >
-                            {selectedDevice?.id === device.id ? 'Selected' : 'Select'}
-                          </button>
-                          <button
-                            onClick={() => deleteMyDevice(device.id)}
-                            className="px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* My Contacts */}
-            {selectedDevice && (
-              <>
-                <div className="bg-[#1f2229] rounded-3xl p-6 border-2 border-slate-700 text-slate-100">
-                  <div className="flex items-start justify-between mb-5">
-                    <div>
-                      <h2 className="text-xl font-black">Safe Dial Dashboard — {selectedDevice.name}</h2>
-                      <p className="text-xs text-slate-400 mt-1">All safe contacts are inbound-approved. Keys 1-9 define outgoing quick dial.</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wider text-slate-400">Active Dials</p>
-                      <p className="text-xl font-black">{activeDials} / 9</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    <div className="lg:col-span-1 rounded-2xl bg-slate-800/70 border border-slate-600 p-4">
-                      <h3 className="font-bold mb-3">Safe Contacts</h3>
-                      <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-                        {myDeviceContacts.map((contact) => (
-                          <div
-                            key={contact.id}
-                            draggable
-                            onDragStart={() => handleMyContactDragStart(contact.id)}
-                            onDragEnd={handleMyContactDragEnd}
-                            className="rounded-xl border border-slate-600 bg-slate-900/70 p-3 cursor-grab active:cursor-grabbing"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="font-semibold truncate">{contact.name}</p>
-                                <p className="text-xs text-slate-400 truncate">{contact.contact_type === 'ring_ring_friend' ? (contact.sip_username || 'Ring Ring Friend') : (contact.phone || 'No number')}</p>
-                              </div>
-                              <select
-                                value={contact.quickDialSlot ?? ''}
-                                onChange={(e) => {
-                                  const slot = e.target.value ? parseInt(e.target.value) : null;
-                                  if (slot === null) {
-                                    void clearMySlot(contact.id);
-                                  } else {
-                                    requestMySlotAssignment(contact.id, slot);
-                                  }
-                                }}
-                                className="bg-slate-700 border border-slate-500 rounded px-2 py-1 text-xs"
-                                disabled={loading.my_slot_assign}
-                              >
-                                <option value="">No key</option>
-                                {Array.from({ length: 9 }, (_, i) => i + 1).map((slot) => (
-                                  <option key={slot} value={slot}>Key {slot}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="lg:col-span-2 rounded-2xl bg-[#0b1220] border border-slate-700 p-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        {quickDialSlots.map(({ slot, contact }) => (
-                          <div
-                            key={slot}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              handleMySlotDragOver(slot);
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              handleMySlotDrop(slot);
-                            }}
-                            onDragLeave={() => setMyDragOverSlot((current) => (current === slot ? null : current))}
-                            className={`aspect-square rounded-2xl border-2 border-dashed flex flex-col items-center justify-center px-2 text-center transition ${
-                              myDragOverSlot === slot ? 'border-[#C4531A] bg-[#C4531A]/10' : 'border-slate-600'
-                            }`}
-                          >
-                            <div className="text-2xl font-black text-slate-300">{slot}</div>
-                            {contact ? (
-                              <>
-                                <p className="text-xs font-bold mt-1 truncate w-full">{contact.name}</p>
-                                <p className="text-[10px] text-slate-400 truncate w-full">{contact.contact_type === 'ring_ring_friend' ? 'Ring Ring Friend' : contact.phone}</p>
-                              </>
-                            ) : (
-                              <p className="text-[10px] text-slate-500 mt-1">Unassigned</p>
-                            )}
-                          </div>
-                        ))}
-                        <div className="aspect-square rounded-2xl border border-slate-700 text-slate-500 flex items-center justify-center text-2xl font-black">*</div>
-                        <div className="aspect-square rounded-2xl border border-slate-700 text-slate-500 flex items-center justify-center text-2xl font-black">0</div>
-                        <div className="aspect-square rounded-2xl border border-slate-700 text-slate-500 flex items-center justify-center text-2xl font-black">#</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                  <h2 className="text-lg font-black text-stone-900 mb-4">Add Contact</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <input
-                      className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                      placeholder="Name"
-                      value={newContactName}
-                      onChange={(e) => setNewContactName(e.target.value)}
-                    />
-                    <input
-                      className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                      placeholder="Phone"
-                      value={newContactPhone}
-                      onChange={(e) => setNewContactPhone(e.target.value)}
-                    />
-                    <select
-                      value={newContactSlot}
-                      onChange={(e) => setNewContactSlot(e.target.value)}
-                      className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                    >
-                      <option value="">No quick dial</option>
-                      {quickDialSlots.map(({ slot }) => (
-                        <option key={slot} value={slot}>Key {slot}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={addMyContact}
-                      disabled={loading.add_my_contact || !newContactName.trim() || !newContactPhone.trim()}
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                    >
-                      {loading.add_my_contact ? 'Adding...' : 'Add'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-                  <div className="p-6 border-b border-stone-100">
-                    <h2 className="text-lg font-black text-stone-900">All Contacts ({myDeviceContacts.length})</h2>
-                  </div>
-                  {myDeviceContacts.length === 0 ? (
-                    <div className="p-12 text-center text-stone-500">No contacts yet</div>
-                  ) : (
-                    <div className="divide-y divide-stone-100">
-                      {myDeviceContacts.map((contact) => (
-                        <div key={contact.id} className="p-6 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            {contact.quickDialSlot !== null && (
-                              <span className="w-8 h-8 rounded-full bg-[#C4531A] text-white font-black text-sm flex items-center justify-center">
-                                {contact.quickDialSlot}
-                              </span>
-                            )}
-                            <div>
-                              <p className="font-black text-stone-900">{contact.name}</p>
-                              <p className="text-sm text-stone-500 font-mono">{contact.phone}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <select
-                              value={contact.quickDialSlot ?? ''}
-                              onChange={(e) => {
-                                const slot = e.target.value ? parseInt(e.target.value) : null;
-                                if (slot === null) {
-                                  void clearMySlot(contact.id);
-                                } else {
-                                  requestMySlotAssignment(contact.id, slot);
-                                }
-                              }}
-                              className="px-3 py-2 rounded-lg border-2 border-stone-200 text-sm font-medium focus:border-[#C4531A] outline-none"
-                            >
-                              <option value="">No slot</option>
-                              {Array.from({ length: 9 }, (_, i) => i + 1).map((s) => (
-                                <option key={s} value={s}>Key {s}</option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => deleteMyContact(contact.id)}
-                              className="px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {mySlotSwapModal && (
-                  <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md border border-stone-200">
-                      <h3 className="text-lg font-black text-stone-900">Swap quick dial assignment?</h3>
-                      <p className="text-sm text-stone-600 mt-2">
-                        Key {mySlotSwapModal.slot} is currently assigned to <span className="font-bold">{mySlotSwapModal.existingContact.name}</span>.
-                        Replace it with your selected contact?
-                      </p>
-                      <div className="flex justify-end gap-2 mt-5">
-                        <button
-                          onClick={() => setMySlotSwapModal(null)}
-                          className="px-4 py-2 rounded-lg bg-stone-100 text-stone-700 font-semibold"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={async () => {
-                            const payload = mySlotSwapModal;
-                            setMySlotSwapModal(null);
-                            await applyMySlotAssignment(payload.contactId, payload.slot, payload.existingContact.id);
-                          }}
-                          className="px-4 py-2 rounded-lg bg-[#C4531A] text-white font-semibold"
-                        >
-                          Swap & Assign
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
           </div>
         )}
 
@@ -1088,9 +614,6 @@ export default function AdminDashboard({
                             <div className="space-y-2">
                               {userDeviceList.map((device) => {
                                 const deviceContacts = userContactList.filter((c) => c.deviceId === device.id);
-                                const quickDialContacts = deviceContacts
-                                  .filter((c) => c.quickDialSlot !== null)
-                                  .sort((a, b) => (a.quickDialSlot || 0) - (b.quickDialSlot || 0));
                                 const isDeviceExpanded = expandedDeviceId === device.id;
                                 const adapterLabel = device.adapterType === 'grandstream' ? 'Grandstream HT801'
                                   : device.adapterType === 'linksys' ? 'Linksys SPA2102'
@@ -1227,32 +750,14 @@ export default function AdminDashboard({
                                           </div>
                                         </div>
 
-                                        {/* Quick Dial */}
-                                        {deviceContacts.length > 0 && (
-                                          <div>
-                                            <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">
-                                              Quick Dial ({quickDialContacts.length}/9)
-                                            </p>
-                                            <div className="grid grid-cols-5 md:grid-cols-9 gap-1.5">
-                                              {Array.from({ length: 9 }, (_, i) => {
-                                                const slot = i + 1;
-                                                const contact = quickDialContacts.find((c) => c.quickDialSlot === slot);
-                                                return (
-                                                  <div key={slot} className={`text-center rounded-lg p-2 border text-xs ${
-                                                    contact ? 'bg-white border-stone-200' : 'bg-stone-100 border-dashed border-stone-300'
-                                                  }`}>
-                                                    <div className={`font-black ${contact ? 'text-stone-900' : 'text-stone-300'}`}>{slot}</div>
-                                                    {contact ? (
-                                                      <div className="text-stone-600 truncate mt-0.5">{contact.name}</div>
-                                                    ) : (
-                                                      <div className="text-stone-300">—</div>
-                                                    )}
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          </div>
-                                        )}
+                                        {/* Trusted Contacts Manager */}
+                                        <div className="bg-white rounded-2xl border border-stone-200 p-4">
+                                          <TrustedContactsManager
+                                            deviceId={device.id}
+                                            userId={user.id}
+                                            deviceName={device.name}
+                                          />
+                                        </div>
                                       </div>
                                     )}
                                   </div>
