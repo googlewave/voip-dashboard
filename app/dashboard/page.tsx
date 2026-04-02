@@ -75,7 +75,7 @@ type Friendship = {
   }>;
 };
 
-type Tab = 'devices' | 'contacts' | 'friends' | 'store' | 'subscription' | 'settings';
+type Tab = 'devices' | 'contacts' | 'friends' | 'store' | 'lines' | 'settings';
 
 type Invoice = {
   id: string;
@@ -159,6 +159,7 @@ function DashboardInner() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
   const [cancellingSubId, setCancellingSubId] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
 
   // E911
   const [e911Name, setE911Name] = useState('');
@@ -368,8 +369,8 @@ function DashboardInner() {
   };
 
   const cancelSubscription = async (subId: string) => {
-    if (!confirm('Cancel this subscription? It will remain active until the end of the billing period.')) return;
     setCancellingSubId(subId);
+    setConfirmCancelId(null);
     await fetch('/api/billing/cancel-subscription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -377,6 +378,14 @@ function DashboardInner() {
     });
     setCancellingSubId(null);
     await fetchSubscriptions();
+  };
+
+  const cancelNumber = async () => {
+    setConfirmCancelId(null);
+    setCancellingSubId('direct');
+    await fetch('/api/billing/cancel-number', { method: 'POST' });
+    setCancellingSubId(null);
+    await fetchData(user!.id);
   };
 
   const saveE911 = async () => {
@@ -497,10 +506,10 @@ function DashboardInner() {
                 Store
               </button>
               <button
-                onClick={() => { setActiveTab('subscription'); void fetchSubscriptions(); }}
-                className={activeTab === 'subscription' ? 'text-stone-900' : 'hover:text-stone-800 transition'}
+                onClick={() => { setActiveTab('lines'); void fetchSubscriptions(); }}
+                className={activeTab === 'lines' ? 'text-stone-900' : 'hover:text-stone-800 transition'}
               >
-                Subscription
+                Phone Lines
               </button>
               <button onClick={() => setActiveTab('settings')} className={activeTab === 'settings' ? 'text-stone-900' : 'hover:text-stone-800 transition'}>
                 Settings
@@ -1004,55 +1013,6 @@ function DashboardInner() {
         {activeTab === 'settings' && (
           <div className="space-y-6">
 
-            {/* E911 Address */}
-            <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-              <h2 className="text-lg font-black text-stone-900 mb-1">🚨 E911 Address</h2>
-              <p className="text-sm text-stone-500 mb-5">Emergency services use this address when 911 is dialed from your Ring Ring device. Keep it accurate.</p>
-              <div className="space-y-3">
-                <input
-                  className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                  placeholder="Caller name (e.g., Smith Family)"
-                  value={e911Name}
-                  onChange={(e) => setE911Name(e.target.value)}
-                />
-                <input
-                  className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                  placeholder="Street address (e.g., 123 Main St)"
-                  value={e911Street}
-                  onChange={(e) => setE911Street(e.target.value)}
-                />
-                <div className="grid grid-cols-3 gap-3">
-                  <input
-                    className="col-span-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                    placeholder="City"
-                    value={e911City}
-                    onChange={(e) => setE911City(e.target.value)}
-                  />
-                  <input
-                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                    placeholder="State"
-                    maxLength={2}
-                    value={e911State}
-                    onChange={(e) => setE911State(e.target.value.toUpperCase())}
-                  />
-                  <input
-                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                    placeholder="ZIP"
-                    maxLength={10}
-                    value={e911Zip}
-                    onChange={(e) => setE911Zip(e.target.value)}
-                  />
-                </div>
-                <button
-                  onClick={saveE911}
-                  disabled={savingE911}
-                  className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                >
-                  {e911Saved ? '✓ Saved' : savingE911 ? 'Saving…' : 'Save E911 Address'}
-                </button>
-              </div>
-            </div>
-
             {/* Account */}
             <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
               <h2 className="text-lg font-black text-stone-900 mb-5">Account</h2>
@@ -1143,124 +1103,245 @@ function DashboardInner() {
           </div>
         )}
 
-        {/* Subscription Tab */}
-        {activeTab === 'subscription' && (
+        {/* Phone Lines Tab */}
+        {activeTab === 'lines' && (
           <div className="space-y-6">
 
-            {/* Active Lines / Subscriptions */}
-            <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-              <div className="p-6 border-b border-stone-100 flex items-center justify-between">
-                <h2 className="text-lg font-black text-stone-900">Active Lines</h2>
-                <button
-                  onClick={() => { setActiveTab('store'); void fetchInvoices(); }}
-                  className="text-sm font-bold text-[#C4531A] hover:underline"
-                >
-                  + Add another line
-                </button>
-              </div>
-
-              {loadingSubscriptions ? (
-                <div className="p-12 text-center text-stone-400 text-sm">Loading…</div>
-              ) : !isPaid ? (
-                <div className="p-8 space-y-4">
-                  <div className="p-5 bg-stone-50 rounded-2xl border-2 border-stone-200">
-                    <div className="text-sm font-bold text-stone-500 uppercase tracking-wide mb-1">Starter Plan</div>
-                    <div className="text-3xl font-black text-stone-900">Free</div>
-                    <p className="text-sm text-stone-600 mt-1">Ring Ring → Ring Ring calls only</p>
-                  </div>
-                  <div className="p-5 bg-amber-50 rounded-2xl border-2 border-amber-200">
-                    <h3 className="font-black text-amber-900 mb-1">Upgrade to unlock all US calling</h3>
-                    <p className="text-sm text-amber-800 mb-3">Quiet Hours, Usage Caps, E911, and unlimited calls to any US number.</p>
-                    <button onClick={() => router.push('/buy')} className="px-5 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition text-sm">
-                      Upgrade for $8.95/month
-                    </button>
+            {/* Free / Friends & Family tier */}
+            {!isPaid ? (
+              <div className="space-y-4">
+                <div className="bg-white rounded-3xl p-8 border-2 border-stone-100">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-full bg-stone-100 flex items-center justify-center text-2xl flex-shrink-0">👋</div>
+                    <div>
+                      <div className="text-xs font-black text-stone-400 uppercase tracking-widest mb-1">Ring Ring Free Plan</div>
+                      <h2 className="text-2xl font-black text-stone-900 mb-2">Friends &amp; Family</h2>
+                      <p className="text-stone-500 text-sm">You&apos;re on the free Ring Ring plan — you can call and receive calls from other Ring Ring users on the same network. No monthly charge, no phone number, no Stripe account.</p>
+                    </div>
                   </div>
                 </div>
-              ) : subscriptions.length > 0 ? (
-                <div className="divide-y divide-stone-100">
-                  {subscriptions.map((sub, i) => (
-                    <div key={sub.id} className="p-6">
+                <div className="bg-amber-50 rounded-3xl p-6 border-2 border-amber-200">
+                  <h3 className="font-black text-amber-900 mb-1">Want to call any US number?</h3>
+                  <p className="text-sm text-amber-800 mb-4">Add a dedicated phone line for $8.95/month and unlock unlimited calls, Quiet Hours, Usage Caps, and real E911.</p>
+                  <button onClick={() => router.push('/buy')} className="px-5 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition text-sm">
+                    Upgrade for $8.95/month
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Active Lines */}
+                <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
+                  <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                    <h2 className="text-lg font-black text-stone-900">Active Lines</h2>
+                    <button
+                      onClick={() => { setActiveTab('store'); void fetchInvoices(); }}
+                      className="text-sm font-bold text-[#C4531A] hover:underline"
+                    >
+                      + Add another line
+                    </button>
+                  </div>
+
+                  {loadingSubscriptions ? (
+                    <div className="p-12 text-center text-stone-400 text-sm">Loading…</div>
+                  ) : subscriptions.length > 0 ? (
+                    <div className="divide-y divide-stone-100">
+                      {subscriptions.map((sub, i) => {
+                        const isConfirming = confirmCancelId === sub.id;
+                        return (
+                          <div key={sub.id} className="p-6">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-black text-stone-900">${(sub.amount / 100).toFixed(2)}/{sub.interval}</span>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    sub.cancelAtPeriodEnd ? 'bg-amber-100 text-amber-700'
+                                    : sub.status === 'active' ? 'bg-green-100 text-green-700'
+                                    : 'bg-stone-100 text-stone-500'
+                                  }`}>
+                                    {sub.cancelAtPeriodEnd ? 'Cancels at period end' : sub.status}
+                                  </span>
+                                </div>
+                                {i === 0 && profile?.twilio_number && (
+                                  <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
+                                )}
+                                <p className="text-sm text-stone-500">
+                                  {sub.cancelAtPeriodEnd ? 'Active until' : 'Renews'}{' '}
+                                  {new Date(sub.currentPeriodEnd * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                </p>
+                              </div>
+                              {!sub.cancelAtPeriodEnd && (
+                                <button
+                                  onClick={() => setConfirmCancelId(isConfirming ? null : sub.id)}
+                                  className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </div>
+                            {/* Step 2 confirmation */}
+                            {isConfirming && (
+                              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                                <p className="text-sm font-black text-red-800 mb-1">Are you sure you want to cancel this line?</p>
+                                <p className="text-sm text-red-700 mb-4">Your number stays active until the end of the billing period. This cannot be undone.</p>
+                                <div className="flex gap-3">
+                                  <button
+                                    onClick={() => void cancelSubscription(sub.id)}
+                                    disabled={cancellingSubId === sub.id}
+                                    className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50"
+                                  >
+                                    {cancellingSubId === sub.id ? 'Cancelling…' : 'Yes, cancel my line'}
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmCancelId(null)}
+                                    className="px-5 py-2 bg-white text-stone-700 font-bold rounded-xl border border-stone-200 hover:bg-stone-50 transition text-sm"
+                                  >
+                                    Keep my line
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Paid but Stripe returned no subscriptions — profile fallback */
+                    <div className="p-6">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-black text-stone-900">
-                              ${(sub.amount / 100).toFixed(2)}/{sub.interval}
+                              {profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}
                             </span>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                              sub.status === 'active' && !sub.cancelAtPeriodEnd
-                                ? 'bg-green-100 text-green-700'
-                                : sub.cancelAtPeriodEnd
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-stone-100 text-stone-500'
-                            }`}>
-                              {sub.cancelAtPeriodEnd ? 'Cancels at period end' : sub.status}
-                            </span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
                           </div>
-                          {/* Show the primary number on the first entry */}
-                          {i === 0 && profile?.twilio_number && (
+                          {profile?.twilio_number && (
                             <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
                           )}
-                          <p className="text-sm text-stone-500">
-                            {sub.cancelAtPeriodEnd ? 'Active until' : 'Renews'}{' '}
-                            {new Date(sub.currentPeriodEnd * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                          </p>
+                          <p className="text-sm text-stone-500">{profile?.plan === 'annual' ? 'Annual plan' : 'Monthly plan'}</p>
                         </div>
-                        {!sub.cancelAtPeriodEnd && (
+                        {confirmCancelId !== 'direct' ? (
                           <button
-                            onClick={() => void cancelSubscription(sub.id)}
-                            disabled={cancellingSubId === sub.id}
-                            className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm disabled:opacity-50"
+                            onClick={() => setConfirmCancelId('direct')}
+                            className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
                           >
-                            {cancellingSubId === sub.id ? 'Cancelling…' : 'Cancel'}
+                            Cancel
                           </button>
+                        ) : null}
+                      </div>
+                      {confirmCancelId === 'direct' && (
+                        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                          <p className="text-sm font-black text-red-800 mb-1">Are you sure you want to cancel this line?</p>
+                          <p className="text-sm text-red-700 mb-4">Your phone number will be released and your account will revert to the free plan. This cannot be undone.</p>
+                          <div className="flex gap-3">
+                            {profile?.stripe_subscription_id ? (
+                              <button
+                                onClick={() => void cancelSubscription(profile.stripe_subscription_id!)}
+                                disabled={cancellingSubId === profile.stripe_subscription_id}
+                                className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50"
+                              >
+                                {cancellingSubId === profile.stripe_subscription_id ? 'Cancelling…' : 'Yes, cancel my line'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => void cancelNumber()}
+                                disabled={cancellingSubId === 'direct'}
+                                className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50"
+                              >
+                                {cancellingSubId === 'direct' ? 'Cancelling…' : 'Yes, release my number'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setConfirmCancelId(null)}
+                              className="px-5 py-2 bg-white text-stone-700 font-bold rounded-xl border border-stone-200 hover:bg-stone-50 transition text-sm"
+                            >
+                              Keep my line
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* E911 Address for this line */}
+                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                  <h2 className="text-lg font-black text-stone-900 mb-1">🚨 E911 Emergency Address</h2>
+                  <p className="text-sm text-stone-500 mb-4">Emergency services use this address when 911 is dialed from your Ring Ring device. Keep it accurate and up to date.</p>
+
+                  {/* Current address summary */}
+                  {(e911Street || e911City) && (
+                    <div className="flex items-start gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-200 mb-5">
+                      <span className="text-lg">📍</span>
+                      <div className="text-sm">
+                        {e911Name && <p className="font-bold text-stone-900">{e911Name}</p>}
+                        {e911Street && <p className="text-stone-600">{e911Street}</p>}
+                        {(e911City || e911State || e911Zip) && (
+                          <p className="text-stone-600">{[e911City, e911State, e911Zip].filter(Boolean).join(', ')}</p>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                /* Paid but Stripe returned no subscriptions — show profile fallback */
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-black text-stone-900">
-                          {profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}
-                        </span>
-                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
-                      </div>
-                      {profile?.twilio_number && (
-                        <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
-                      )}
-                      <p className="text-sm text-stone-500">{profile?.plan === 'annual' ? 'Annual plan' : 'Monthly plan'}</p>
+                  )}
+
+                  <div className="space-y-3">
+                    <input
+                      className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                      placeholder="Caller name (e.g., Smith Family)"
+                      value={e911Name}
+                      onChange={(e) => setE911Name(e.target.value)}
+                    />
+                    <input
+                      className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                      placeholder="Street address (e.g., 123 Main St)"
+                      value={e911Street}
+                      onChange={(e) => setE911Street(e.target.value)}
+                    />
+                    <div className="grid grid-cols-3 gap-3">
+                      <input
+                        className="col-span-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                        placeholder="City"
+                        value={e911City}
+                        onChange={(e) => setE911City(e.target.value)}
+                      />
+                      <input
+                        className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                        placeholder="State"
+                        maxLength={2}
+                        value={e911State}
+                        onChange={(e) => setE911State(e.target.value.toUpperCase())}
+                      />
+                      <input
+                        className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                        placeholder="ZIP"
+                        maxLength={10}
+                        value={e911Zip}
+                        onChange={(e) => setE911Zip(e.target.value)}
+                      />
                     </div>
-                    {profile?.stripe_subscription_id && (
-                      <button
-                        onClick={() => void cancelSubscription(profile.stripe_subscription_id!)}
-                        disabled={cancellingSubId === profile.stripe_subscription_id}
-                        className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm disabled:opacity-50"
-                      >
-                        {cancellingSubId === profile.stripe_subscription_id ? 'Cancelling…' : 'Cancel'}
-                      </button>
-                    )}
+                    <button
+                      onClick={saveE911}
+                      disabled={savingE911}
+                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
+                    >
+                      {e911Saved ? '✓ Saved' : savingE911 ? 'Saving…' : 'Save E911 Address'}
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* What's included */}
-            {isPaid && (
-              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                <h3 className="font-black text-stone-900 mb-4">What&apos;s included on every line</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {['Dedicated phone number', 'Unlimited US calling', 'Trusted contact list', 'Quick dial keys', 'Quiet Hours scheduling', 'Digital Kill Switch', 'Daily usage caps', 'Real E911'].map(f => (
-                    <div key={f} className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs flex-shrink-0">✓</span>
-                      <span className="text-stone-600">{f}</span>
-                    </div>
-                  ))}
+                {/* What’s included */}
+                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                  <h3 className="font-black text-stone-900 mb-4">What&apos;s included on every line</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {['Dedicated phone number', 'Unlimited US calling', 'Trusted contact list', 'Quick dial keys', 'Quiet Hours scheduling', 'Digital Kill Switch', 'Daily usage caps', 'Real E911'].map(f => (
+                      <div key={f} className="flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs flex-shrink-0">✓</span>
+                        <span className="text-stone-600">{f}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
           </div>
