@@ -1,6 +1,6 @@
 # Ring Ring — Functionality Map
 
-> Last updated: April 2026  
+> Last updated: April 2026 (session 14+)  
 > Stack: Next.js (App Router) · Supabase (Auth + PostgreSQL) · Prisma · Twilio · Stripe · Vercel
 
 ---
@@ -32,7 +32,8 @@
 | `/login` | `app/login/page.tsx` | Supabase email/password authentication |
 | `/buy` | `app/buy/page.tsx` | 4-step purchase funnel (hardware → plan → delivery → checkout) |
 | `/billing` | `app/billing/page.tsx` | Legacy billing page (Stripe checkout / portal) |
-| `/dashboard` | `app/dashboard/page.tsx` | Main parent portal (5 tabs) |
+| `/dashboard` | `app/dashboard/page.tsx` | Main parent portal (7 tabs) |
+| `/verify-2fa` | `app/verify-2fa/page.tsx` | Email OTP verification page for 2FA |
 | `/invite/[token]` | `app/invite/[token]/page.tsx` | Friend invite accept flow |
 | `/welcome` | `app/welcome/page.tsx` | Post-signup welcome page |
 | `/portal-select` | `app/portal-select/page.tsx` | Choose between User Dashboard and Admin Portal |
@@ -48,16 +49,20 @@
 ### Tabs
 
 #### Devices Tab
-- Add device by name → creates DB record, immediately shows provisioning modal
-- List all devices with online/offline status badge and contact count
-- Toggle device online/offline (kill switch)
-- **Setup** button → QR code provisioning modal with auto-provisioning URL
-- **Manage** button → jumps to Contacts tab with that device selected
+- Add device by name → creates DB record, auto-assigns current phone line (`phone_number`), immediately shows provisioning modal
+- List all devices showing: phone line (blue monospace), online/offline badge, contact count, quiet hours / usage cap indicators
+- **Phone line** displayed per-device (linked at creation; backfilled for existing devices)
+- **Setup** button → QR code provisioning modal with auto-provisioning URL (only shown once SIP credentials exist)
+- **Contacts** button → jumps to Contacts tab with that device pre-selected
+- **Settings** button → toggles inline per-device settings panel:
+  - 🔴 Digital Kill Switch (toggle online/offline)
+  - 🌙 Quiet Hours (paid only) — enable, set start/end time
+  - ⏱️ Daily Usage Cap (paid only) — enable, set minutes/day
 - Delete device (also deletes all associated contacts)
-- Indicators: quiet hours active, usage cap active
 
 #### Contacts Tab
-- Device selector (dropdown of user's devices)
+- **Inline device picker** when no device is pre-selected — shows clickable list of device cards (name, phone line, contact count, online status); no need to visit Devices tab first
+- When device selected and multiple devices exist: compact switcher dropdown at top
 - **Safe Dial Dashboard** — dark UI showing 9 numbered quick-dial slots (keys 1–9)
   - Drag-and-drop contacts from list onto slot grid
   - Slot conflict → swap confirmation modal
@@ -67,7 +72,6 @@
   - **Phone Number** (paid plan only) — enter PSTN number
 - Quick dial slot assignment (1–9) or no slot
 - Contact list with slot assignment dropdown and remove button
-- Helper text when no friend devices are available
 
 #### Friends Tab
 - View all connected families with their device count and status
@@ -80,24 +84,41 @@
   - Share via SMS (sms: link)
   - Safety note (expires in 7 days, recipient-only)
 
-#### Subscription Tab
-- Shows current plan (Free / Monthly / Annual)
-- For paid users: displays assigned Twilio phone number
-- Paid plan feature checklist
-- **Manage Subscription** → Stripe Customer Portal
-- For free users: upgrade CTA → `/buy`
+#### Phone Lines Tab (formerly Subscription)
+**Free / Friends & Family users:**
+- "👋 Ring Ring Free Plan — Friends & Family" info card explaining no billing, Ring Ring-to-Ring Ring only
+- Upgrade CTA card → `/buy`
+
+**Paid users (monthly or annual):**
+- Active Lines list (from Stripe subscriptions API or profile fallback)
+  - Per line: amount/interval, status badge, phone number, renewal date
+  - **🚨 E911 Emergency Address** — collapsible per-line section:
+    - Shows current address summary inline when set; "Not set" amber badge when missing
+    - Edit form (name, street, city, state, ZIP) with save button
+  - **Cancel** button → two-step inline confirmation:
+    - Step 1: Cancel button appears
+    - Step 2: Confirmation panel with "Yes, cancel my line" / "Keep my line"
+    - For Stripe users: calls `cancelSubscription` (keeps active until period end)
+    - For non-Stripe users: calls `cancelNumber` → releases Twilio number, resets plan to free
+- "+ Add another line" → navigates to Store tab
+- "What's included on every line" feature grid
 
 #### Settings Tab
-- Device selector
-- **Digital Kill Switch** — instantly toggle device online/offline
-- **Quiet Hours** (paid only) — enable/disable, set start/end time (HH:MM)
-- **Daily Usage Cap** (paid only) — enable/disable, set minutes per day (1–1440)
-- Upgrade prompt for free users
+- **Account** — change email address, change password
+- **Two-Factor Authentication** — toggle email OTP on sign-in (sends 6-digit code via Resend)
 
 ### Provisioning Modal (Dashboard)
 - QR code pointing to `https://voip-dashboard-sigma.vercel.app/api/provision/auto/{deviceId}`
 - Manual URL display with copy button
 - Step-by-step setup instructions
+
+### 2FA Flow
+1. User enables 2FA toggle in Settings tab → stored as `two_factor_enabled = true`
+2. On next login, `SiteGuard` checks Supabase for `two_factor_enabled`
+3. If enabled and session not yet verified → redirects to `/verify-2fa`
+4. `/verify-2fa` page: calls `POST /api/auth/send-otp` (generates 6-digit OTP, saves to DB with 10-min expiry, sends email via Resend)
+5. User submits code → `POST /api/auth/verify-otp` (validates, clears OTP)
+6. On success → `sessionStorage.setItem('2fa_verified_{userId}', '1')` → redirect to dashboard
 
 ---
 
@@ -126,8 +147,17 @@
 - **Manual Billing** — modal with plan override, optional charge amount, note field → calls `/api/admin/manual-billing` (bypasses Stripe)
 - **View Devices** — inline expansion showing user's devices
 
+#### Users Tab (expanded)
+- Per user: plan badge, Twilio number, device count
+- **+ Add Device** → modal with:
+  - Device name, adapter type (Grandstream/Linksys/Other)
+  - **Phone Line** selector — auto-populated with user's `twilioNumber`; shows "No phone line provisioned yet" if none
+  - MAC address (optional)
+- Device rows show: phone number (blue monospace), SIP status, MAC, contact count
+
 #### All Devices Tab
 - All devices across all users
+- Device row secondary line shows: linked **phone number** (blue monospace) or "No line" (amber), SIP credentials, MAC, contact count
 - Expand device row to reveal:
   - SIP credentials (username, password, domain)
   - Device info (ID, type, MAC address, IP)
@@ -160,6 +190,8 @@
 | Method | Route | Description |
 |--------|-------|-------------|
 | — | Supabase Auth | Email/password sign-in, session management |
+| POST | `/api/auth/send-otp` | Generate 6-digit OTP, save to DB with 10-min expiry, email via Resend |
+| POST | `/api/auth/verify-otp` | Verify OTP, clear from DB on success |
 
 ### Devices
 | Method | Route | Description |
@@ -213,6 +245,9 @@
 | POST | `/api/stripe/webhook` | Handle `checkout.session.completed` and `customer.subscription.deleted` events |
 | POST | `/api/buy/checkout` | Full onboarding checkout (new account + hardware + plan) |
 | POST | `/api/billing/create-checkout` | Legacy billing checkout |
+| GET | `/api/billing/subscriptions` | Fetch authenticated user's active Stripe subscriptions |
+| POST | `/api/billing/cancel-subscription` | Cancel a Stripe subscription at period end |
+| POST | `/api/billing/cancel-number` | For non-Stripe users: release Twilio number + reset plan to free |
 
 ### User
 | Method | Route | Description |
@@ -394,7 +429,9 @@ At call time, the SIP username is dialed directly (SIP-to-SIP, free).
 ### Prisma Models (PostgreSQL via Supabase)
 
 **User**
-- id, email, plan, twilioNumber, stripeCustomerId, stripeSubId, areaCode
+- id, email, plan, twilioNumber, twilioNumberSid, stripeCustomerId, stripeSubId, areaCode
+- e911Name, e911Street, e911City, e911State, e911Zip
+- twoFactorEnabled, otp, otpExpiresAt
 
 **Device**
 - id, userId, name, status (online/offline)
@@ -402,6 +439,7 @@ At call time, the SIP username is dialed directly (SIP-to-SIP, free).
 - macAddress, adapterType (`grandstream`|`linksys`|`other`), adapterIp
 - quietHoursEnabled, quietHoursStart, quietHoursEnd
 - usageCapEnabled, usageCapMinutes
+- **phoneNumber** — linked phone line (backfilled from user's twilioNumber; set at device creation)
 - lastProvisionedAt, provisioningStatus, configVersion, lastSeenIp
 
 **Contact**

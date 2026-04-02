@@ -1,252 +1,129 @@
-# Friend Invite System - Implementation Status
+# Ring Ring — Implementation Status
 
-## ✅ Completed (Ready to Deploy)
-
-### 1. Database Schema
-- ✅ Created `friend_invites` table
-- ✅ Created `friendships` table
-- ✅ Created `friend_device_permissions` table
-- ✅ Updated `contacts` table with new columns
-- ✅ Migration SQL ready: `prisma/migrations/add_friend_system.sql`
-- ✅ Prisma schema updated
-
-### 2. Parent Portal Branding
-- ✅ Renamed dashboard header to "Parent Portal"
-- ✅ Added safety messaging: "🔒 Adult Supervision Required"
-
-### 3. API Endpoints
-- ✅ `POST /api/friends/invite/create` - Generate invite
-- ✅ `GET /api/friends/invite/[token]` - Get invite details
-- ✅ `POST /api/friends/invite/[token]/accept` - Accept invite
-- ✅ `GET /api/friends` - List friendships
-
-### 4. Invite Acceptance Page
-- ✅ `/invite/[token]` page created
-- ✅ Authentication check
-- ✅ Device selection UI
-- ✅ Accept button functionality
+> Last updated: April 2026 (session 14+)  
+> Production: https://voip-dashboard-sigma.vercel.app
 
 ---
 
-## 🚧 Remaining Work
+## ✅ Fully Implemented & Live
 
-### 5. Friends Tab UI (High Priority)
-**File:** `/app/dashboard/page.tsx`
+### Database Schema
+- ✅ `friend_invites`, `friendships`, `friend_device_permissions` tables
+- ✅ `contacts` table with `contact_type`, `sip_username`, `friend_device_id`, `friendship_id`
+- ✅ `users` table extended: `e911_name/street/city/state/zip`, `two_factor_enabled`, `otp`, `otp_expires_at`, `twilio_number_sid`
+- ✅ `devices` table extended: `phone_number` (linked line, backfilled for existing devices), provisioning tracking fields
 
-**Add new tab:**
-```typescript
-type Tab = 'devices' | 'contacts' | 'friends' | 'subscription' | 'settings';
-```
+### Parent Portal — Devices Tab
+- ✅ Phone line (`phone_number`) shown per device in blue monospace
+- ✅ Device auto-assigns current user line on creation
+- ✅ Existing 4 devices backfilled with user's `twilio_number` via migration
+- ✅ Inline per-device Settings panel (kill switch, quiet hours, usage cap) — paid gating
+- ✅ Setup Guide button only shown when SIP credentials exist (no confusing pending state)
+- ✅ Contacts button jumps to Contacts tab with device pre-selected
 
-**Components needed:**
-- Create Friend Invite button
-- QR code modal (using `QRCodeSVG`)
-- Share methods: QR, Email, SMS
-- Pending invites list
-- Approved friends list
-- Friend devices display
+### Parent Portal — Contacts Tab
+- ✅ Inline device picker when no device selected (clickable cards with phone line + contact count)
+- ✅ No more "Go to Devices tab" dead-end message
+- ✅ Multi-device switcher shown only when >1 device exists
+- ✅ Ring Ring Friend contacts (SIP-to-SIP) + Phone Number contacts (PSTN, paid)
+- ✅ Safe Dial Dashboard — drag-and-drop quick dial slots 1–9
 
-**Estimated time:** 2-3 hours
+### Parent Portal — Friends Tab
+- ✅ Create Friend Invite (QR code + copy link + email/SMS share)
+- ✅ Connected families list with device count
+- ✅ Pending outbound invites list
+- ✅ `/invite/[token]` acceptance page
 
-### 6. Contact Management Updates (High Priority)
-**File:** `/app/dashboard/page.tsx` - Contacts tab
+### Parent Portal — Phone Lines Tab (formerly Subscription)
+- ✅ Renamed from "Subscription" → "Phone Lines"
+- ✅ **Free / Friends & Family** tier card — clearly explains no billing, Ring Ring-to-Ring Ring only, upgrade CTA
+- ✅ Paid users: Active Lines from Stripe subscriptions API + profile fallback
+- ✅ Per-line phone number shown in blue monospace
+- ✅ **E911 Emergency Address** moved inside each line entry (collapsible, shows current address or "Not set" badge)
+- ✅ **Two-step cancel confirmation** — Cancel → inline "Are you sure?" → "Yes, cancel my line" / "Keep my line"
+- ✅ Cancel for Stripe users: `POST /api/billing/cancel-subscription` (period end)
+- ✅ Cancel for non-Stripe users: `POST /api/billing/cancel-number` (releases Twilio number, resets plan to free)
+- ✅ "What's included" feature grid
 
-**Changes needed:**
-- Add contact type selector (Ring Ring Friend vs Phone Number)
-- For Ring Ring friends: Show dropdown of approved friend devices
-- Store `friendship_id`, `friend_device_id`, `sip_username` in contact
-- Update `addContact` function to handle both types
+### Parent Portal — Settings Tab
+- ✅ Account section: change email, change password
+- ✅ Two-Factor Authentication toggle (email OTP via Resend)
+- ✅ Device-specific settings fully removed (moved to Devices tab inline panel)
+- ✅ E911 fully removed (moved to Phone Lines tab per-line)
 
-**Estimated time:** 1-2 hours
+### Two-Factor Authentication (2FA)
+- ✅ `POST /api/auth/send-otp` — generates 6-digit OTP, stores with 10-min expiry, emails via Resend
+- ✅ `POST /api/auth/verify-otp` — validates OTP, clears on success
+- ✅ `/verify-2fa` page — OTP input, resend button, error handling
+- ✅ `SiteGuard` enhanced — checks `two_factor_enabled` on every protected page load, redirects to `/verify-2fa` if unverified
+- ✅ Session marked via `sessionStorage` to avoid re-prompting within same session
 
-### 7. Quick Dial Visual Updates (Medium Priority)
-**File:** `/app/dashboard/page.tsx` - Quick dial display
+### Billing API
+- ✅ `GET /api/billing/subscriptions` — fetches user's active Stripe subscriptions
+- ✅ `POST /api/billing/cancel-subscription` — cancels at period end
+- ✅ `POST /api/billing/cancel-number` — non-Stripe path: releases Twilio number via API, nulls out DB fields
 
-**Changes needed:**
-- Orange gradient for Ring Ring friends
-- Blue gradient for phone numbers
-- Display SIP username (hidden) for friends
-- Display phone number for PSTN contacts
+### Admin Portal
+- ✅ Add Device modal includes **Phone Line selector** (pre-populated with user's `twilioNumber`)
+- ✅ Device rows show linked phone number (blue) or "No line" (amber) in secondary info line
+- ✅ `phoneNumber` field sent through `POST /api/devices/create` and stored in DB
 
-**Estimated time:** 30 minutes
-
-### 8. Device Provisioning Config (High Priority)
-**Files:** 
-- `/app/api/provision/auto/[deviceId]/route.ts`
-- Device config generation functions
-
-**Changes needed:**
-- Include SIP usernames in speed dial config
-- Format: `sip_username@ringringclub.sip.twilio.com`
-- Update dial plan to allow SIP usernames
-
-**Estimated time:** 1 hour
-
-### 9. Twilio Webhook Updates (Critical)
-**File:** `/app/api/twilio/voice/route.ts`
-
-**Changes needed:**
-- Detect if call is to SIP username (starts with `sip_`)
-- If yes: Route SIP-to-SIP (free)
-- If no: Check user plan, route to PSTN if paid
-
-**Estimated time:** 1 hour
-
-### 10. Email Invite Sending (Optional)
-**New file:** `/app/api/friends/invite/send-email/route.ts`
-
-**Requirements:**
-- Install Resend: `npm install resend`
-- Create HTML email template
-- Generate QR code as data URL
-- Send email with invite link
-
-**Estimated time:** 2 hours
-
-### 11. SMS Invite Sending (Optional)
-**New file:** `/app/api/friends/invite/send-sms/route.ts`
-
-**Requirements:**
-- Use existing Twilio client
-- Send SMS with invite link
-- Optional: URL shortener
-
-**Estimated time:** 1 hour
+### Device–Line Architecture
+- ✅ `phone_number` column on `devices` table (was already in Prisma schema at field level)
+- ✅ DB migration ran: `ALTER TABLE devices ADD COLUMN IF NOT EXISTS phone_number TEXT`
+- ✅ Backfill: `UPDATE devices SET phone_number = users.twilio_number WHERE user_id = users.id`
+- ✅ New devices auto-assigned line at creation (parent portal + admin portal)
 
 ---
 
-## 📋 Deployment Checklist
+## 🚧 Known Gaps / Future Work
 
-### Before Deploying:
+### Per-Line E911 (DB level)
+- Currently E911 fields are on the `users` table (one set per user)
+- UI already shows E911 per-line in Phone Lines tab
+- When multiple lines per user are supported, each line will need its own E911 record (requires a `lines` table or moving E911 to a junction table)
 
-1. **Run Database Migration**
-```bash
-# Connect to Supabase database
-psql $DATABASE_URL
+### Multiple Lines Per User (Architecture)
+- Current: one `twilio_number` + one `stripe_sub_id` on `users` table
+- Future: dedicated `lines` table with `user_id`, `twilio_number`, `stripe_sub_id`, `e911_*` per row
+- Device `phone_number` field already prepared for this
 
-# Run migration
-\i prisma/migrations/add_friend_system.sql
+### SMS Invite Sending
+- `POST /api/friends/invite/send-sms` not yet built
+- Can use existing Twilio client
 
-# Verify tables created
-\dt friend_*
-\d contacts
+### Call Log UI
+- `CallLog` table exists and is written to
+- No parent-facing call history UI yet
+
+---
+
+## 📋 Environment Variables Required
+
 ```
-
-2. **Update Prisma Client**
-```bash
-npx prisma generate
-```
-
-3. **Environment Variables**
-Verify these are set in Vercel:
-- `TWILIO_SIP_DOMAIN=ringringclub.sip.twilio.com`
-- `TWILIO_SIP_CRED_LIST_SID=CL...`
-- `NEXT_PUBLIC_BASE_URL=https://voip-dashboard-sigma.vercel.app`
-
-4. **Test Locally First**
-```bash
-npm run dev
-# Test invite creation
-# Test invite acceptance
-# Test friend device display
-```
-
-5. **Deploy to Production**
-```bash
-npx vercel --prod
+TWILIO_ACCOUNT_SID
+TWILIO_AUTH_TOKEN
+TWILIO_PHONE_NUMBER
+TWILIO_SIP_DOMAIN=ringringclub.sip.twilio.com
+TWILIO_SIP_CRED_LIST_SID=CL...
+STRIPE_SECRET_KEY
+STRIPE_PRICE_ID
+STRIPE_WEBHOOK_SECRET
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+DATABASE_URL
+DIRECT_URL
+NEXT_PUBLIC_BASE_URL=https://voip-dashboard-sigma.vercel.app
+NEXT_PUBLIC_SITE_PASSWORD
+RESEND_API_KEY
 ```
 
 ---
 
-## 🧪 Testing Plan
+## 🎯 Recommended Next Steps
 
-### Test 1: Invite Creation
-1. Login to Parent Portal
-2. Go to Friends tab
-3. Click "Create Friend Invite"
-4. Verify QR code appears
-5. Copy invite URL
-
-### Test 2: Invite Acceptance
-1. Open invite URL in incognito window
-2. Login with different account
-3. Select devices
-4. Click "Accept & Connect"
-5. Verify friendship created
-
-### Test 3: Add Friend as Contact
-1. Go to Contacts tab
-2. Click "Add Contact"
-3. Select "Ring Ring Friend"
-4. Choose friend's device from dropdown
-5. Assign to quick dial slot
-6. Verify contact created with SIP username
-
-### Test 4: SIP-to-SIP Call
-1. Provision two devices
-2. Add each other as contacts
-3. Press quick dial button
-4. Verify call connects
-5. Check Twilio logs - should show SIP-to-SIP (no PSTN charges)
-
-### Test 5: PSTN Blocking on Free Plan
-1. Free plan account
-2. Try to add phone number contact
-3. Verify blocked or grayed out
-4. Try to dial phone number
-5. Verify "Upgrade required" message
-
----
-
-## 💰 Cost Savings Analysis
-
-### Before (All PSTN Calls)
-- 2 families, 100 calls/month, 5 min avg
-- Cost: 100 × 5 × $0.013 = $6.50/month per family
-- Total: $13/month
-
-### After (Twilio-to-Twilio)
-- Same usage, but SIP-to-SIP
-- Cost: $0/month (no PSTN)
-- Savings: $13/month = $156/year
-
-### Scale Impact
-- 1,000 families using free plan
-- Savings: $6,500/month = $78,000/year
-- Enables sustainable free tier
-
----
-
-## 🎯 Next Steps (Priority Order)
-
-1. **Run database migration** (5 min)
-2. **Build Friends tab UI** (2-3 hours)
-3. **Update contact management** (1-2 hours)
-4. **Update device provisioning** (1 hour)
-5. **Update Twilio webhook** (1 hour)
-6. **Test end-to-end** (1 hour)
-7. **Deploy to production** (15 min)
-
-**Total estimated time: 6-8 hours**
-
----
-
-## 📝 Notes
-
-### Why This Matters
-- **Safety:** Mutual parent approval prevents stranger contact
-- **Cost:** SIP-to-SIP calling makes free tier sustainable
-- **UX:** QR code invites are fast and modern
-- **Scale:** Can support thousands of free users profitably
-
-### Technical Decisions
-- **Supabase for auth/data:** Already integrated, reliable
-- **QR codes client-side:** No server cost, instant generation
-- **SIP usernames as identifiers:** Direct routing, no lookup needed
-- **Friendship-based contacts:** Enforces approval, enables revocation
-
-### Future Enhancements
-- Group invites (classrooms)
-- Temporary permissions (playdates)
-- Activity reports
-- Friend suggestions
+1. **Multiple lines architecture** — create `lines` table, migrate `twilio_number` + `stripe_sub_id` + E911 fields off `users`
+2. **Call log UI** — show call history per device in Devices tab
+3. **SMS invite sending** — `POST /api/friends/invite/send-sms`
+4. **Admin: edit device phone line** — allow reassigning a device to a different line post-creation
