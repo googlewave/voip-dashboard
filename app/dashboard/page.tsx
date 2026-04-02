@@ -161,6 +161,7 @@ function DashboardInner() {
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
   const [cancellingSubId, setCancellingSubId] = useState<string | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [e911LineOpen, setE911LineOpen] = useState<string | null>(null);
 
   // E911
   const [e911Name, setE911Name] = useState('');
@@ -1191,8 +1192,11 @@ function DashboardInner() {
                     <div className="divide-y divide-stone-100">
                       {subscriptions.map((sub, i) => {
                         const isConfirming = confirmCancelId === sub.id;
+                        const e911Open = e911LineOpen === sub.id;
+                        const hasAddress = e911Street || e911City;
                         return (
-                          <div key={sub.id} className="p-6">
+                          <div key={sub.id} className="p-6 space-y-4">
+                            {/* Line summary row */}
                             <div className="flex items-start justify-between gap-4">
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
@@ -1222,23 +1226,50 @@ function DashboardInner() {
                                 </button>
                               )}
                             </div>
-                            {/* Step 2 confirmation */}
+
+                            {/* E911 per-line */}
+                            <div className="border-t border-stone-100 pt-4">
+                              <button
+                                onClick={() => setE911LineOpen(e911Open ? null : sub.id)}
+                                className="flex items-center justify-between w-full text-left"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-black text-stone-700">🚨 E911 Emergency Address</span>
+                                  {!hasAddress && <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Not set</span>}
+                                </div>
+                                <span className="text-stone-400 text-sm">{e911Open ? '⌃' : '⌄'}</span>
+                              </button>
+                              {!e911Open && hasAddress && (
+                                <p className="text-xs text-stone-500 mt-1">
+                                  {[e911Name, e911Street, e911City, e911State, e911Zip].filter(Boolean).join(', ')}
+                                </p>
+                              )}
+                              {e911Open && (
+                                <div className="mt-3 space-y-2">
+                                  <input className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="Caller name (e.g., Smith Family)" value={e911Name} onChange={(e) => setE911Name(e.target.value)} />
+                                  <input className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="Street address" value={e911Street} onChange={(e) => setE911Street(e.target.value)} />
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <input className="col-span-1 px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="City" value={e911City} onChange={(e) => setE911City(e.target.value)} />
+                                    <input className="px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="State" maxLength={2} value={e911State} onChange={(e) => setE911State(e.target.value.toUpperCase())} />
+                                    <input className="px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="ZIP" maxLength={10} value={e911Zip} onChange={(e) => setE911Zip(e.target.value)} />
+                                  </div>
+                                  <button onClick={saveE911} disabled={savingE911} className="px-5 py-2 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50 text-sm">
+                                    {e911Saved ? '✓ Saved' : savingE911 ? 'Saving…' : 'Save E911 Address'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Cancel confirmation */}
                             {isConfirming && (
-                              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                              <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
                                 <p className="text-sm font-black text-red-800 mb-1">Are you sure you want to cancel this line?</p>
                                 <p className="text-sm text-red-700 mb-4">Your number stays active until the end of the billing period. This cannot be undone.</p>
                                 <div className="flex gap-3">
-                                  <button
-                                    onClick={() => void cancelSubscription(sub.id)}
-                                    disabled={cancellingSubId === sub.id}
-                                    className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50"
-                                  >
+                                  <button onClick={() => void cancelSubscription(sub.id)} disabled={cancellingSubId === sub.id} className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50">
                                     {cancellingSubId === sub.id ? 'Cancelling…' : 'Yes, cancel my line'}
                                   </button>
-                                  <button
-                                    onClick={() => setConfirmCancelId(null)}
-                                    className="px-5 py-2 bg-white text-stone-700 font-bold rounded-xl border border-stone-200 hover:bg-stone-50 transition text-sm"
-                                  >
+                                  <button onClick={() => setConfirmCancelId(null)} className="px-5 py-2 bg-white text-stone-700 font-bold rounded-xl border border-stone-200 hover:bg-stone-50 transition text-sm">
                                     Keep my line
                                   </button>
                                 </div>
@@ -1250,13 +1281,12 @@ function DashboardInner() {
                     </div>
                   ) : (
                     /* Paid but Stripe returned no subscriptions — profile fallback */
-                    <div className="p-6">
+                    <div className="p-6 space-y-4">
+                      {/* Line summary */}
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-black text-stone-900">
-                              {profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}
-                            </span>
+                            <span className="font-black text-stone-900">{profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}</span>
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
                           </div>
                           {profile?.twilio_number && (
@@ -1264,112 +1294,66 @@ function DashboardInner() {
                           )}
                           <p className="text-sm text-stone-500">{profile?.plan === 'annual' ? 'Annual plan' : 'Monthly plan'}</p>
                         </div>
-                        {confirmCancelId !== 'direct' ? (
-                          <button
-                            onClick={() => setConfirmCancelId('direct')}
-                            className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
-                          >
-                            Cancel
-                          </button>
-                        ) : null}
+                        {confirmCancelId !== 'direct' && (
+                          <button onClick={() => setConfirmCancelId('direct')} className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm">Cancel</button>
+                        )}
                       </div>
+
+                      {/* E911 per-line */}
+                      {(() => {
+                        const e911Open = e911LineOpen === 'direct';
+                        const hasAddress = e911Street || e911City;
+                        return (
+                          <div className="border-t border-stone-100 pt-4">
+                            <button onClick={() => setE911LineOpen(e911Open ? null : 'direct')} className="flex items-center justify-between w-full text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-black text-stone-700">🚨 E911 Emergency Address</span>
+                                {!hasAddress && <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Not set</span>}
+                              </div>
+                              <span className="text-stone-400 text-sm">{e911Open ? '⌃' : '⌄'}</span>
+                            </button>
+                            {!e911Open && hasAddress && (
+                              <p className="text-xs text-stone-500 mt-1">{[e911Name, e911Street, e911City, e911State, e911Zip].filter(Boolean).join(', ')}</p>
+                            )}
+                            {e911Open && (
+                              <div className="mt-3 space-y-2">
+                                <input className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="Caller name (e.g., Smith Family)" value={e911Name} onChange={(e) => setE911Name(e.target.value)} />
+                                <input className="w-full px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="Street address" value={e911Street} onChange={(e) => setE911Street(e.target.value)} />
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input className="col-span-1 px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="City" value={e911City} onChange={(e) => setE911City(e.target.value)} />
+                                  <input className="px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="State" maxLength={2} value={e911State} onChange={(e) => setE911State(e.target.value.toUpperCase())} />
+                                  <input className="px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900 text-sm" placeholder="ZIP" maxLength={10} value={e911Zip} onChange={(e) => setE911Zip(e.target.value)} />
+                                </div>
+                                <button onClick={saveE911} disabled={savingE911} className="px-5 py-2 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50 text-sm">
+                                  {e911Saved ? '✓ Saved' : savingE911 ? 'Saving…' : 'Save E911 Address'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Cancel confirmation */}
                       {confirmCancelId === 'direct' && (
-                        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl">
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl">
                           <p className="text-sm font-black text-red-800 mb-1">Are you sure you want to cancel this line?</p>
                           <p className="text-sm text-red-700 mb-4">Your phone number will be released and your account will revert to the free plan. This cannot be undone.</p>
                           <div className="flex gap-3">
                             {profile?.stripe_subscription_id ? (
-                              <button
-                                onClick={() => void cancelSubscription(profile.stripe_subscription_id!)}
-                                disabled={cancellingSubId === profile.stripe_subscription_id}
-                                className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50"
-                              >
+                              <button onClick={() => void cancelSubscription(profile.stripe_subscription_id!)} disabled={cancellingSubId === profile.stripe_subscription_id} className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50">
                                 {cancellingSubId === profile.stripe_subscription_id ? 'Cancelling…' : 'Yes, cancel my line'}
                               </button>
                             ) : (
-                              <button
-                                onClick={() => void cancelNumber()}
-                                disabled={cancellingSubId === 'direct'}
-                                className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50"
-                              >
+                              <button onClick={() => void cancelNumber()} disabled={cancellingSubId === 'direct'} className="px-5 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition text-sm disabled:opacity-50">
                                 {cancellingSubId === 'direct' ? 'Cancelling…' : 'Yes, release my number'}
                               </button>
                             )}
-                            <button
-                              onClick={() => setConfirmCancelId(null)}
-                              className="px-5 py-2 bg-white text-stone-700 font-bold rounded-xl border border-stone-200 hover:bg-stone-50 transition text-sm"
-                            >
-                              Keep my line
-                            </button>
+                            <button onClick={() => setConfirmCancelId(null)} className="px-5 py-2 bg-white text-stone-700 font-bold rounded-xl border border-stone-200 hover:bg-stone-50 transition text-sm">Keep my line</button>
                           </div>
                         </div>
                       )}
                     </div>
                   )}
-                </div>
-
-                {/* E911 Address for this line */}
-                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                  <h2 className="text-lg font-black text-stone-900 mb-1">🚨 E911 Emergency Address</h2>
-                  <p className="text-sm text-stone-500 mb-4">Emergency services use this address when 911 is dialed from your Ring Ring device. Keep it accurate and up to date.</p>
-
-                  {/* Current address summary */}
-                  {(e911Street || e911City) && (
-                    <div className="flex items-start gap-3 p-4 bg-stone-50 rounded-2xl border border-stone-200 mb-5">
-                      <span className="text-lg">📍</span>
-                      <div className="text-sm">
-                        {e911Name && <p className="font-bold text-stone-900">{e911Name}</p>}
-                        {e911Street && <p className="text-stone-600">{e911Street}</p>}
-                        {(e911City || e911State || e911Zip) && (
-                          <p className="text-stone-600">{[e911City, e911State, e911Zip].filter(Boolean).join(', ')}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <input
-                      className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                      placeholder="Caller name (e.g., Smith Family)"
-                      value={e911Name}
-                      onChange={(e) => setE911Name(e.target.value)}
-                    />
-                    <input
-                      className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                      placeholder="Street address (e.g., 123 Main St)"
-                      value={e911Street}
-                      onChange={(e) => setE911Street(e.target.value)}
-                    />
-                    <div className="grid grid-cols-3 gap-3">
-                      <input
-                        className="col-span-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                        placeholder="City"
-                        value={e911City}
-                        onChange={(e) => setE911City(e.target.value)}
-                      />
-                      <input
-                        className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                        placeholder="State"
-                        maxLength={2}
-                        value={e911State}
-                        onChange={(e) => setE911State(e.target.value.toUpperCase())}
-                      />
-                      <input
-                        className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                        placeholder="ZIP"
-                        maxLength={10}
-                        value={e911Zip}
-                        onChange={(e) => setE911Zip(e.target.value)}
-                      />
-                    </div>
-                    <button
-                      onClick={saveE911}
-                      disabled={savingE911}
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                    >
-                      {e911Saved ? '✓ Saved' : savingE911 ? 'Saving…' : 'Save E911 Address'}
-                    </button>
-                  </div>
                 </div>
 
                 {/* What’s included */}
