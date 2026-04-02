@@ -170,6 +170,63 @@ export async function sendPhoneProvisionedEmail({ to, name, phoneNumber }: Phone
   }
 }
 
+interface OtpEmailProps {
+  to: string;
+  otp: string;
+}
+
+export async function sendOtpEmail({ to, otp }: OtpEmailProps) {
+  if (!resend) {
+    console.warn('Resend not configured - skipping OTP email');
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: `${otp} — Your Ring Ring verification code`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #292524; }
+              .container { max-width: 500px; margin: 0 auto; padding: 20px; }
+              .header { background: #C4531A; color: white; padding: 24px 30px; text-align: center; border-radius: 12px 12px 0 0; }
+              .content { background: #fff; padding: 30px; border: 2px solid #e7e5e4; border-top: none; border-radius: 0 0 12px 12px; }
+              .otp-box { background: #fafaf9; border: 2px solid #e7e5e4; border-radius: 12px; padding: 20px; text-align: center; margin: 20px 0; }
+              .otp-code { font-size: 40px; font-weight: 900; letter-spacing: 10px; color: #C4531A; font-family: monospace; }
+              .footer { text-align: center; color: #78716c; font-size: 12px; margin-top: 24px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1 style="margin:0;font-size:22px;">🔐 Verification Code</h1>
+              </div>
+              <div class="content">
+                <p>Enter this code to complete your sign-in:</p>
+                <div class="otp-box">
+                  <div class="otp-code">${otp}</div>
+                  <p style="margin:8px 0 0;font-size:13px;color:#78716c;">Expires in 10 minutes</p>
+                </div>
+                <p style="font-size:13px;color:#78716c;">If you didn't request this, you can safely ignore this email. Someone may have typed your email by mistake.</p>
+              </div>
+              <div class="footer">
+                <p>Ring Ring · The safe, screen-free home phone for kids</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+    console.log(`📧 OTP email sent to ${to}`);
+  } catch (error) {
+    console.error('Failed to send OTP email:', error);
+  }
+}
+
 interface OrderConfirmationEmailProps {
   to: string;
   name: string;

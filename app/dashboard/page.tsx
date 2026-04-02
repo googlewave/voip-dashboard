@@ -39,7 +39,23 @@ interface UserProfile {
   twilio_number: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  e911_name: string | null;
+  e911_street: string | null;
+  e911_city: string | null;
+  e911_state: string | null;
+  e911_zip: string | null;
+  two_factor_enabled: boolean;
 }
+
+type Subscription = {
+  id: string;
+  status: string;
+  currentPeriodEnd: number;
+  cancelAtPeriodEnd: boolean;
+  amount: number;
+  currency: string;
+  interval: string;
+};
 
 type FriendDevice = {
   id: string;
@@ -138,6 +154,28 @@ function DashboardInner() {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [checkingOut, setCheckingOut] = useState(false);
 
+  // Subscriptions
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
+  const [cancellingSubId, setCancellingSubId] = useState<string | null>(null);
+
+  // E911
+  const [e911Name, setE911Name] = useState('');
+  const [e911Street, setE911Street] = useState('');
+  const [e911City, setE911City] = useState('');
+  const [e911State, setE911State] = useState('');
+  const [e911Zip, setE911Zip] = useState('');
+  const [savingE911, setSavingE911] = useState(false);
+  const [e911Saved, setE911Saved] = useState(false);
+
+  // Account
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountMsg, setAccountMsg] = useState<{type:'ok'|'err'; text:string} | null>(null);
+  const [toggling2FA, setToggling2FA] = useState(false);
+
   const [friendDevices, setFriendDevices] = useState<FriendDevice[]>([]);
 
   // Quiet Hours
@@ -192,14 +230,21 @@ function DashboardInner() {
   async function fetchData(userId: string) {
     const { data: profileData } = await supabase
       .from('users')
-      .select('plan, twilio_number, stripe_customer_id, stripe_sub_id')
+      .select('plan, twilio_number, stripe_customer_id, stripe_sub_id, e911_name, e911_street, e911_city, e911_state, e911_zip, two_factor_enabled')
       .eq('id', userId)
       .single();
 
-    if (profileData) setProfile({
-      ...profileData,
-      stripe_subscription_id: profileData.stripe_sub_id,
-    });
+    if (profileData) {
+      setProfile({
+        ...profileData,
+        stripe_subscription_id: profileData.stripe_sub_id,
+      });
+      setE911Name(profileData.e911_name ?? '');
+      setE911Street(profileData.e911_street ?? '');
+      setE911City(profileData.e911_city ?? '');
+      setE911State(profileData.e911_state ?? '');
+      setE911Zip(profileData.e911_zip ?? '');
+    }
 
     const { data: devicesData } = await supabase
       .from('devices')
@@ -308,6 +353,80 @@ function DashboardInner() {
     if (data.url) window.location.href = data.url;
   };
 
+  const fetchSubscriptions = async () => {
+    setLoadingSubscriptions(true);
+    try {
+      const res = await fetch('/api/billing/subscriptions');
+      if (res.ok) {
+        const data = await res.json();
+        setSubscriptions(data.subscriptions ?? []);
+      }
+    } finally {
+      setLoadingSubscriptions(false);
+    }
+  };
+
+  const cancelSubscription = async (subId: string) => {
+    if (!confirm('Cancel this subscription? It will remain active until the end of the billing period.')) return;
+    setCancellingSubId(subId);
+    await fetch('/api/billing/cancel-subscription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscriptionId: subId }),
+    });
+    setCancellingSubId(null);
+    await fetchSubscriptions();
+  };
+
+  const saveE911 = async () => {
+    if (!user) return;
+    setSavingE911(true);
+    await supabase.from('users').update({
+      e911_name: e911Name,
+      e911_street: e911Street,
+      e911_city: e911City,
+      e911_state: e911State,
+      e911_zip: e911Zip,
+    }).eq('id', user.id);
+    setSavingE911(false);
+    setE911Saved(true);
+    setTimeout(() => setE911Saved(false), 3000);
+  };
+
+  const updateEmail = async () => {
+    if (!newEmail.trim()) return;
+    setSavingAccount(true);
+    setAccountMsg(null);
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    setSavingAccount(false);
+    if (error) setAccountMsg({ type: 'err', text: error.message });
+    else { setAccountMsg({ type: 'ok', text: 'Confirmation sent — check your new email inbox.' }); setNewEmail(''); }
+  };
+
+  const updatePassword = async () => {
+    if (!newPassword || newPassword !== confirmPassword) {
+      setAccountMsg({ type: 'err', text: 'Passwords do not match.' }); return;
+    }
+    if (newPassword.length < 8) {
+      setAccountMsg({ type: 'err', text: 'Password must be at least 8 characters.' }); return;
+    }
+    setSavingAccount(true);
+    setAccountMsg(null);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSavingAccount(false);
+    if (error) setAccountMsg({ type: 'err', text: error.message });
+    else { setAccountMsg({ type: 'ok', text: 'Password updated successfully.' }); setNewPassword(''); setConfirmPassword(''); }
+  };
+
+  const toggle2FA = async () => {
+    if (!user || !profile) return;
+    setToggling2FA(true);
+    const newVal = !profile.two_factor_enabled;
+    await supabase.from('users').update({ two_factor_enabled: newVal }).eq('id', user.id);
+    setProfile((p) => p ? { ...p, two_factor_enabled: newVal } : p);
+    setToggling2FA(false);
+  };
+
   const fetchInvoices = async () => {
     setLoadingInvoices(true);
     try {
@@ -376,7 +495,10 @@ function DashboardInner() {
               >
                 Store
               </button>
-              <button onClick={() => setActiveTab('subscription')} className={activeTab === 'subscription' ? 'text-stone-900' : 'hover:text-stone-800 transition'}>
+              <button
+                onClick={() => { setActiveTab('subscription'); void fetchSubscriptions(); }}
+                className={activeTab === 'subscription' ? 'text-stone-900' : 'hover:text-stone-800 transition'}
+              >
                 Subscription
               </button>
               <button onClick={() => setActiveTab('settings')} className={activeTab === 'settings' ? 'text-stone-900' : 'hover:text-stone-800 transition'}>
@@ -587,29 +709,22 @@ function DashboardInner() {
               </>
             )}
 
-            {/* Post-registration setup guide */}
-            {showSetupGuide && devices.find(d => d.id === showSetupGuide) && (() => {
-              const newDevice = devices.find(d => d.id === showSetupGuide)!;
+            {/* Post-registration setup guide — only shown while pending activation */}
+            {showSetupGuide && (() => {
+              const newDevice = devices.find(d => d.id === showSetupGuide);
+              if (!newDevice || newDevice.sip_username) return null;
               return (
                 <div className="bg-green-50 rounded-3xl p-6 border-2 border-green-200">
-                  <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-lg font-bold">✓</div>
                       <div>
                         <h3 className="font-black text-stone-900">{newDevice.name} registered!</h3>
-                        <p className="text-sm text-stone-500">Next: activate and provision your physical adapter</p>
+                        <p className="text-sm text-stone-500">Your Ring Ring team will activate it shortly. The Setup Guide button will appear on the device once active.</p>
                       </div>
                     </div>
-                    <button onClick={() => setShowSetupGuide(null)} className="text-stone-400 hover:text-stone-600 text-xl leading-none">×</button>
+                    <button onClick={() => setShowSetupGuide(null)} className="text-stone-400 hover:text-stone-600 text-xl leading-none flex-shrink-0">×</button>
                   </div>
-                  {newDevice.sip_username ? (
-                    <SetupGuidePanel deviceId={newDevice.id} />
-                  ) : (
-                    <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200">
-                      <p className="text-sm font-bold text-amber-800 mb-1">⏳ Pending activation</p>
-                      <p className="text-sm text-amber-700">Your Ring Ring team will activate this device within a few hours. Once active, a Setup Guide button will appear here with your provisioning URL.</p>
-                    </div>
-                  )}
                 </div>
               );
             })()}
@@ -934,9 +1049,145 @@ function DashboardInner() {
               <div className="bg-white rounded-3xl p-16 border-2 border-stone-100 text-center">
                 <div className="text-6xl mb-4">⚙️</div>
                 <p className="text-xl font-black text-stone-900 mb-2">No device selected</p>
-                <p className="text-stone-500">Go to Devices tab to add or select a device first</p>
+                <p className="text-stone-500">Go to Devices tab to select a device first</p>
               </div>
             )}
+
+            {/* E911 Address */}
+            <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+              <h2 className="text-lg font-black text-stone-900 mb-1">🚨 E911 Address</h2>
+              <p className="text-sm text-stone-500 mb-5">Emergency services use this address when 911 is dialed from your Ring Ring device. Keep it accurate.</p>
+              <div className="space-y-3">
+                <input
+                  className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                  placeholder="Caller name (e.g., Smith Family)"
+                  value={e911Name}
+                  onChange={(e) => setE911Name(e.target.value)}
+                />
+                <input
+                  className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                  placeholder="Street address (e.g., 123 Main St)"
+                  value={e911Street}
+                  onChange={(e) => setE911Street(e.target.value)}
+                />
+                <div className="grid grid-cols-3 gap-3">
+                  <input
+                    className="col-span-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                    placeholder="City"
+                    value={e911City}
+                    onChange={(e) => setE911City(e.target.value)}
+                  />
+                  <input
+                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                    placeholder="State"
+                    maxLength={2}
+                    value={e911State}
+                    onChange={(e) => setE911State(e.target.value.toUpperCase())}
+                  />
+                  <input
+                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                    placeholder="ZIP"
+                    maxLength={10}
+                    value={e911Zip}
+                    onChange={(e) => setE911Zip(e.target.value)}
+                  />
+                </div>
+                <button
+                  onClick={saveE911}
+                  disabled={savingE911}
+                  className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
+                >
+                  {e911Saved ? '✓ Saved' : savingE911 ? 'Saving…' : 'Save E911 Address'}
+                </button>
+              </div>
+            </div>
+
+            {/* Account */}
+            <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+              <h2 className="text-lg font-black text-stone-900 mb-5">Account</h2>
+              <div className="space-y-6">
+                {/* Email */}
+                <div>
+                  <p className="text-sm font-bold text-stone-700 mb-1">Current email</p>
+                  <p className="text-sm text-stone-500 mb-3">{user.email}</p>
+                  <label className="block text-sm font-bold text-stone-700 mb-2">New email address</label>
+                  <div className="flex gap-3">
+                    <input
+                      type="email"
+                      className="flex-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                      placeholder="new@email.com"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                    />
+                    <button
+                      onClick={updateEmail}
+                      disabled={savingAccount || !newEmail.trim()}
+                      className="px-5 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50 text-sm"
+                    >
+                      Update
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border-t border-stone-100 pt-5">
+                  <label className="block text-sm font-bold text-stone-700 mb-2">New password</label>
+                  <div className="space-y-2">
+                    <input
+                      type="password"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                      placeholder="New password (min 8 chars)"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <input
+                      type="password"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                    <button
+                      onClick={updatePassword}
+                      disabled={savingAccount || !newPassword || !confirmPassword}
+                      className="px-6 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50 text-sm"
+                    >
+                      {savingAccount ? 'Saving…' : 'Change Password'}
+                    </button>
+                  </div>
+                </div>
+
+                {accountMsg && (
+                  <div className={`px-4 py-3 rounded-xl text-sm font-medium ${
+                    accountMsg.type === 'ok' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                  }`}>
+                    {accountMsg.text}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Security / 2FA */}
+            <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+              <h2 className="text-lg font-black text-stone-900 mb-1">🔐 Two-Factor Authentication</h2>
+              <p className="text-sm text-stone-500 mb-5">When enabled, you&apos;ll receive a 6-digit email code each time you sign in — adding an extra layer of protection.</p>
+              <div className="flex items-center justify-between p-4 rounded-2xl border-2 border-stone-100">
+                <div>
+                  <p className="font-bold text-stone-900">Email verification on sign-in</p>
+                  <p className="text-sm text-stone-500">{profile?.two_factor_enabled ? 'Active — a code is emailed every login' : 'Not enabled'}</p>
+                </div>
+                <button
+                  onClick={toggle2FA}
+                  disabled={toggling2FA}
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                    profile?.two_factor_enabled ? 'bg-[#C4531A]' : 'bg-stone-200'
+                  }`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                    profile?.two_factor_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </button>
+              </div>
+            </div>
 
           </div>
         )}
@@ -944,94 +1195,105 @@ function DashboardInner() {
         {/* Subscription Tab */}
         {activeTab === 'subscription' && (
           <div className="space-y-6">
-            
-            <div className="bg-white rounded-3xl p-8 border-2 border-stone-100">
-              <h2 className="text-2xl font-black text-stone-900 mb-6">Your Plan</h2>
-              
-              {isPaid ? (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between p-6 bg-orange-50 rounded-2xl border-2 border-[#C4531A]">
-                    <div>
-                      <div className="text-sm font-bold text-[#C4531A] uppercase tracking-wide mb-1">
-                        {profile?.plan === 'annual' ? 'Annual Plan' : 'Monthly Plan'}
-                      </div>
-                      <div className="text-3xl font-black text-stone-900">
-                        {profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}
-                      </div>
-                      <p className="text-sm text-stone-600 mt-2">Unlimited calls to any US number</p>
-                    </div>
-                    <div className="text-5xl">🔔</div>
-                  </div>
 
-                  {/* Phone Number */}
-                  {profile?.twilio_number && (
-                    <div className="p-6 bg-blue-50 rounded-2xl border-2 border-blue-200">
-                      <h3 className="text-sm font-bold text-blue-900 mb-2">📞 Your Ring Ring Number</h3>
-                      <div className="text-2xl font-black text-blue-900 font-mono">{profile.twilio_number}</div>
-                      <p className="text-sm text-blue-700 mt-2">This is your dedicated phone number for making and receiving calls.</p>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Unlimited devices</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Unlimited approved contacts</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Quick dial shortcuts</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Quiet Hours scheduling</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Digital Kill Switch</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Daily usage caps</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs font-bold">✓</span>
-                      <span className="text-stone-600">Real E911 with verified address</span>
-                    </div>
+            {/* Phone Number */}
+            {profile?.twilio_number && (
+              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                <h2 className="text-lg font-black text-stone-900 mb-4">Your Ring Ring Number</h2>
+                <div className="flex items-center gap-4 p-5 bg-blue-50 rounded-2xl border-2 border-blue-200">
+                  <div className="text-3xl">📞</div>
+                  <div>
+                    <div className="text-2xl font-black text-blue-900 font-mono">{profile.twilio_number}</div>
+                    <p className="text-sm text-blue-700 mt-1">Your dedicated Ring Ring line</p>
                   </div>
-
-                  <button
-                    onClick={manageSubscription}
-                    className="w-full px-6 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition"
-                  >
-                    Manage Subscription
-                  </button>
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="p-6 bg-stone-50 rounded-2xl border-2 border-stone-200">
+              </div>
+            )}
+
+            {/* Active Subscriptions */}
+            <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
+              <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+                <h2 className="text-lg font-black text-stone-900">Active Lines</h2>
+                <button
+                  onClick={() => { setActiveTab('store'); void fetchInvoices(); }}
+                  className="text-sm font-bold text-[#C4531A] hover:underline"
+                >
+                  + Add another line
+                </button>
+              </div>
+
+              {loadingSubscriptions ? (
+                <div className="p-12 text-center text-stone-400 text-sm">Loading…</div>
+              ) : subscriptions.length === 0 && !isPaid ? (
+                <div className="p-8 space-y-4">
+                  <div className="p-5 bg-stone-50 rounded-2xl border-2 border-stone-200">
                     <div className="text-sm font-bold text-stone-500 uppercase tracking-wide mb-1">Starter Plan</div>
                     <div className="text-3xl font-black text-stone-900">Free</div>
-                    <p className="text-sm text-stone-600 mt-2">Ring Ring → Ring Ring calls only</p>
+                    <p className="text-sm text-stone-600 mt-1">Ring Ring → Ring Ring calls only</p>
                   </div>
-
-                  <div className="p-6 bg-amber-50 rounded-2xl border-2 border-amber-200">
-                    <h3 className="font-black text-amber-900 mb-2">Upgrade to Make It Ring Ring</h3>
-                    <p className="text-sm text-amber-800 mb-4">Get unlimited calls to any US number, plus advanced features like Quiet Hours and Usage Caps.</p>
-                    <button
-                      onClick={() => router.push('/buy')}
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition"
-                    >
+                  <div className="p-5 bg-amber-50 rounded-2xl border-2 border-amber-200">
+                    <h3 className="font-black text-amber-900 mb-1">Upgrade to unlock all US calling</h3>
+                    <p className="text-sm text-amber-800 mb-3">Quiet Hours, Usage Caps, E911, and unlimited calls to any US number.</p>
+                    <button onClick={() => router.push('/buy')} className="px-5 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition text-sm">
                       Upgrade for $8.95/month
                     </button>
                   </div>
                 </div>
+              ) : (
+                <div className="divide-y divide-stone-100">
+                  {subscriptions.map((sub) => (
+                    <div key={sub.id} className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-black text-stone-900">
+                              ${(sub.amount / 100).toFixed(2)}/{sub.interval}
+                            </span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              sub.status === 'active' && !sub.cancelAtPeriodEnd
+                                ? 'bg-green-100 text-green-700'
+                                : sub.cancelAtPeriodEnd
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-stone-100 text-stone-500'
+                            }`}>
+                              {sub.cancelAtPeriodEnd ? 'Cancels at period end' : sub.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-stone-500">
+                            {sub.cancelAtPeriodEnd ? 'Active until' : 'Renews'}{' '}
+                            {new Date(sub.currentPeriodEnd * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                        {!sub.cancelAtPeriodEnd && (
+                          <button
+                            onClick={() => void cancelSubscription(sub.id)}
+                            disabled={cancellingSubId === sub.id}
+                            className="shrink-0 px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm disabled:opacity-50"
+                          >
+                            {cancellingSubId === sub.id ? 'Cancelling…' : 'Cancel'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-
             </div>
+
+            {/* What's included */}
+            {isPaid && (
+              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                <h3 className="font-black text-stone-900 mb-4">What&apos;s included on every line</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {['Dedicated phone number', 'Unlimited US calling', 'Trusted contact list', 'Quick dial keys', 'Quiet Hours scheduling', 'Digital Kill Switch', 'Daily usage caps', 'Real E911'].map(f => (
+                    <div key={f} className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-xs flex-shrink-0">✓</span>
+                      <span className="text-stone-600">{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </div>
         )}

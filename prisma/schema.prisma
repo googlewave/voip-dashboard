@@ -17,6 +17,14 @@ model User {
   areaCode               String?  @map("area_code")
   createdAt              DateTime @default(now()) @map("created_at")
   stripe_subscription_id String?
+  e911Name               String?  @map("e911_name")
+  e911Street             String?  @map("e911_street")
+  e911City               String?  @map("e911_city")
+  e911State              String?  @map("e911_state")
+  e911Zip                String?  @map("e911_zip")
+  twoFactorEnabled       Boolean  @default(false) @map("two_factor_enabled")
+  twoFactorOtp           String?  @map("two_factor_otp")
+  twoFactorOtpExpiresAt  DateTime? @map("two_factor_otp_expires_at")
 
   @@map("users")
 }
