@@ -44,7 +44,7 @@ type Contact = {
   sip_username?: string | null;
 };
 
-type Tab = 'my-account' | 'users' | 'devices' | 'billing' | 'system';
+type Tab = 'my-account' | 'users' | 'billing' | 'system';
 
 export default function AdminDashboard({
   initialUsers,
@@ -115,6 +115,12 @@ export default function AdminDashboard({
 
   // System
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
+  // Users & Devices (combined view)
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
+  const [addDeviceUserId, setAddDeviceUserId] = useState<string | null>(null);
+  const [addDeviceForm, setAddDeviceForm] = useState({ name: '', adapterType: 'grandstream', macAddress: '' });
 
   async function fetchMyData() {
     const { data: devicesData } = await supabase
@@ -488,6 +494,57 @@ export default function AdminDashboard({
     router.push('/landing');
   };
 
+  const addDeviceForUser = async () => {
+    if (!addDeviceUserId || !addDeviceForm.name.trim()) return;
+    setLoading((prev) => ({ ...prev, add_device_for_user: true }));
+    try {
+      const res = await fetch('/api/devices/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: addDeviceUserId,
+          name: addDeviceForm.name.trim(),
+          adapterType: addDeviceForm.adapterType,
+          macAddress: addDeviceForm.macAddress.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowAddDeviceModal(false);
+        setAddDeviceUserId(null);
+        setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '' });
+        await refreshData();
+      } else {
+        alert(data.error || 'Failed to add device');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to add device');
+    }
+    setLoading((prev) => ({ ...prev, add_device_for_user: false }));
+  };
+
+  const deleteUser = async (userId: string, email: string) => {
+    if (!confirm(`Permanently delete ${email} and all their data? This cannot be undone.`)) return;
+    setLoading((prev) => ({ ...prev, [`delete_user_${userId}`]: true }));
+    try {
+      const res = await fetch('/api/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setExpandedUserId(null);
+        await refreshData();
+      } else {
+        alert(data.error || 'Failed to delete user');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete user');
+    }
+    setLoading((prev) => ({ ...prev, [`delete_user_${userId}`]: false }));
+  };
+
   const myDeviceContacts = selectedDevice
     ? myContacts.filter((c) => c.deviceId === selectedDevice.id)
     : [];
@@ -498,13 +555,6 @@ export default function AdminDashboard({
   }));
   const activeDials = quickDialSlots.filter(({ contact }) => contact !== null).length;
 
-  const userDevices = selectedUserId
-    ? devices.filter((d) => d.userId === selectedUserId)
-    : [];
-
-  const userContacts = selectedUserId
-    ? contacts.filter((c) => c.userId === selectedUserId)
-    : [];
 
   return (
     <div className="min-h-screen bg-[#FAF7F2]">
@@ -517,21 +567,15 @@ export default function AdminDashboard({
               ⚡ Admin Portal
             </button>
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-orange-100">
-              <button onClick={() => setActiveTab('my-account')} className={activeTab === 'my-account' ? 'text-white' : 'hover:text-white transition'}>
-                My Account
-              </button>
-              <button onClick={() => setActiveTab('users')} className={activeTab === 'users' ? 'text-white' : 'hover:text-white transition'}>
-                Users
-              </button>
-              <button onClick={() => setActiveTab('devices')} className={activeTab === 'devices' ? 'text-white' : 'hover:text-white transition'}>
-                All Devices
-              </button>
-              <button onClick={() => setActiveTab('billing')} className={activeTab === 'billing' ? 'text-white' : 'hover:text-white transition'}>
-                Billing
-              </button>
-              <button onClick={() => setActiveTab('system')} className={activeTab === 'system' ? 'text-white' : 'hover:text-white transition'}>
-                System
-              </button>
+              {(['my-account', 'users', 'billing', 'system'] as Tab[]).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`capitalize transition ${activeTab === tab ? 'text-white font-bold' : 'hover:text-white'}`}
+                >
+                  {tab === 'my-account' ? 'My Account' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
             </nav>
           </div>
           <div className="flex items-center gap-3">
@@ -857,35 +901,37 @@ export default function AdminDashboard({
 
         {/* Users Tab */}
         {activeTab === 'users' && (
-          <div className="space-y-6">
-            
+          <div className="space-y-4">
+
+            {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-black text-stone-900">User Management</h2>
-                <p className="text-stone-500 text-sm">Total: {users.length} users</p>
+                <h2 className="text-2xl font-black text-stone-900">Users &amp; Devices</h2>
+                <p className="text-stone-500 text-sm">{users.length} users · {devices.length} devices</p>
               </div>
               <button
-                onClick={() => setShowAddUser(true)}
-                className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition"
+                onClick={() => setShowAddUser(!showAddUser)}
+                className="px-5 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition text-sm"
               >
-                + Add User
+                {showAddUser ? '✕ Cancel' : '+ Add User'}
               </button>
             </div>
 
+            {/* Add User Form */}
             {showAddUser && (
-              <div className="bg-white rounded-3xl p-6 border-2 border-[#C4531A]">
-                <h3 className="text-lg font-black text-stone-900 mb-4">Create New User</h3>
-                {addUserError && <div className="mb-4 px-4 py-3 bg-red-50 text-red-700 rounded-xl text-sm">{addUserError}</div>}
+              <div className="bg-white rounded-2xl p-5 border-2 border-[#C4531A]">
+                <h3 className="text-base font-black text-stone-900 mb-4">Create New User</h3>
+                {addUserError && <div className="mb-3 px-4 py-2 bg-red-50 text-red-700 rounded-xl text-sm">{addUserError}</div>}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <input
-                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
+                    className="px-4 py-2.5 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-sm"
                     placeholder="Email"
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   />
                   <input
                     type="password"
-                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
+                    className="px-4 py-2.5 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-sm"
                     placeholder="Password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
@@ -893,114 +939,332 @@ export default function AdminDashboard({
                   <select
                     value={newUser.plan}
                     onChange={(e) => setNewUser({ ...newUser, plan: e.target.value })}
-                    className="px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
+                    className="px-4 py-2.5 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-sm"
                   >
                     <option value="free">Free</option>
                     <option value="monthly">Monthly ($8.95)</option>
                     <option value="annual">Annual ($85.80)</option>
                   </select>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={addUser}
-                      disabled={addingUser}
-                      className="flex-1 px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                    >
-                      {addingUser ? 'Creating...' : 'Create'}
-                    </button>
-                    <button
-                      onClick={() => { setShowAddUser(false); setAddUserError(''); }}
-                      className="px-6 py-3 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  <button
+                    onClick={addUser}
+                    disabled={addingUser}
+                    className="px-6 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50 text-sm"
+                  >
+                    {addingUser ? 'Creating...' : 'Create User'}
+                  </button>
                 </div>
               </div>
             )}
 
-            <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-              <div className="divide-y divide-stone-100">
-                {users.map((user) => (
-                  <div key={user.id} className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="font-black text-stone-900">{user.email}</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                            user.plan === 'free' ? 'bg-stone-100 text-stone-600' : 'bg-[#C4531A] text-white'
-                          }`}>
-                            {user.plan === 'free' ? 'Free' : user.plan === 'annual' ? 'Annual' : 'Monthly'}
-                          </span>
-                          {user.twilioNumber && (
-                            <span className="text-xs text-stone-500 font-mono">{user.twilioNumber}</span>
+            {/* User List */}
+            <div className="bg-white rounded-2xl border-2 border-stone-100 overflow-hidden divide-y divide-stone-100">
+              {users.length === 0 && (
+                <div className="p-12 text-center text-stone-400">No users yet</div>
+              )}
+              {users.map((user) => {
+                const isExpanded = expandedUserId === user.id;
+                const userDeviceList = devices.filter((d) => d.userId === user.id);
+                const userContactList = contacts.filter((c) => c.userId === user.id);
+
+                return (
+                  <div key={user.id}>
+                    {/* User Row Header — always visible */}
+                    <button
+                      onClick={() => setExpandedUserId(isExpanded ? null : user.id)}
+                      className="w-full flex items-center justify-between px-6 py-4 hover:bg-stone-50 transition text-left group"
+                    >
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-sm font-black text-stone-600 flex-shrink-0">
+                          {user.email[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-stone-900 text-sm">{user.email}</span>
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              user.plan === 'free' ? 'bg-stone-100 text-stone-500' : 'bg-[#C4531A] text-white'
+                            }`}>
+                              {user.plan === 'free' ? 'Free' : user.plan === 'annual' ? 'Annual' : 'Monthly'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-stone-400 mt-0.5">
+                            {userDeviceList.length} device{userDeviceList.length !== 1 ? 's' : ''}
+                            {user.twilioNumber && <span className="font-mono ml-2">{user.twilioNumber}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-stone-400 text-xs ml-4 flex-shrink-0 group-hover:text-stone-600 transition">
+                        {isExpanded ? '▲' : '▼'}
+                      </span>
+                    </button>
+
+                    {/* Expanded User Panel */}
+                    {isExpanded && (
+                      <div className="bg-stone-50 border-t border-stone-100 px-6 py-5 space-y-5">
+
+                        {/* User details + actions row */}
+                        <div className="flex flex-col md:flex-row md:items-start gap-4">
+                          {/* User info */}
+                          <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                            <div>
+                              <span className="text-xs text-stone-400 uppercase tracking-wide">Email</span>
+                              <p className="font-medium text-stone-800">{user.email}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-stone-400 uppercase tracking-wide">Plan</span>
+                              <p className="font-medium text-stone-800 capitalize">{user.plan}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-stone-400 uppercase tracking-wide">Phone Number</span>
+                              <p className="font-mono text-stone-800">{user.twilioNumber || <span className="text-stone-400 not-italic">Not provisioned</span>}</p>
+                            </div>
+                            <div>
+                              <span className="text-xs text-stone-400 uppercase tracking-wide">Stripe ID</span>
+                              <p className="font-mono text-stone-600 text-xs truncate">{user.stripeCustomerId || '—'}</p>
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-2">
+                            <select
+                              value={user.plan}
+                              onChange={(e) => updateUserPlan(user.id, e.target.value)}
+                              disabled={loading[`plan_${user.id}`]}
+                              className="px-3 py-2 rounded-lg border-2 border-stone-200 bg-white text-sm font-medium focus:border-[#C4531A] outline-none"
+                            >
+                              <option value="free">Free</option>
+                              <option value="monthly">Monthly</option>
+                              <option value="annual">Annual</option>
+                            </select>
+                            {!user.twilioNumber && (
+                              <button
+                                onClick={() => {
+                                  setProvisioningUser(user.id);
+                                  setE911Data({ ...e911Data, areaCode: user.areaCode || '' });
+                                }}
+                                className="px-3 py-2 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 transition text-sm"
+                              >
+                                + Phone #
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { setManualBillingUser(user.id); setShowManualBilling(true); }}
+                              className="px-3 py-2 bg-amber-100 text-amber-800 font-bold rounded-lg hover:bg-amber-200 transition text-sm"
+                            >
+                              Manual Billing
+                            </button>
+                            <button
+                              onClick={() => deleteUser(user.id, user.email)}
+                              disabled={loading[`delete_user_${user.id}`]}
+                              className="px-3 py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 transition text-sm disabled:opacity-50"
+                            >
+                              {loading[`delete_user_${user.id}`] ? 'Deleting...' : 'Delete User'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Devices Section */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-black text-stone-900 text-sm">
+                              Devices <span className="text-stone-400 font-normal">({userDeviceList.length})</span>
+                            </h4>
+                            <button
+                              onClick={() => {
+                                setAddDeviceUserId(user.id);
+                                setShowAddDeviceModal(true);
+                              }}
+                              className="px-3 py-1.5 bg-stone-800 text-white font-bold rounded-lg hover:bg-stone-700 transition text-xs"
+                            >
+                              + Add Device
+                            </button>
+                          </div>
+
+                          {userDeviceList.length === 0 ? (
+                            <div className="py-6 text-center text-sm text-stone-400 bg-white rounded-xl border-2 border-dashed border-stone-200">
+                              No devices yet — add one above
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {userDeviceList.map((device) => {
+                                const deviceContacts = userContactList.filter((c) => c.deviceId === device.id);
+                                const quickDialContacts = deviceContacts
+                                  .filter((c) => c.quickDialSlot !== null)
+                                  .sort((a, b) => (a.quickDialSlot || 0) - (b.quickDialSlot || 0));
+                                const isDeviceExpanded = expandedDeviceId === device.id;
+                                const adapterLabel = device.adapterType === 'grandstream' ? 'Grandstream HT801'
+                                  : device.adapterType === 'linksys' ? 'Linksys SPA2102'
+                                  : device.adapterType || 'Unknown';
+
+                                return (
+                                  <div key={device.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+                                    {/* Device row */}
+                                    <div className="flex items-center gap-3 px-4 py-3">
+                                      {/* Status toggle */}
+                                      <button
+                                        onClick={() => toggleDevice(device.id, device.status)}
+                                        title={device.status ? 'Online — click to disable' : 'Offline — click to enable'}
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 transition ${
+                                          device.status ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-stone-100 text-stone-400 hover:bg-stone-200'
+                                        }`}
+                                      >
+                                        {device.status ? '✓' : '○'}
+                                      </button>
+
+                                      {/* Device info */}
+                                      <button
+                                        onClick={() => setExpandedDeviceId(isDeviceExpanded ? null : device.id)}
+                                        className="flex-1 text-left min-w-0"
+                                      >
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-bold text-stone-900 text-sm">{device.name}</span>
+                                          {device.adapterType && (
+                                            <span className="text-xs px-2 py-0.5 bg-stone-100 text-stone-500 rounded-full">{adapterLabel}</span>
+                                          )}
+                                          {device.sipUsername
+                                            ? <span className="text-xs text-green-600 font-semibold">SIP ✓</span>
+                                            : <span className="text-xs text-amber-600 font-semibold">No SIP</span>
+                                          }
+                                        </div>
+                                        <p className="text-xs text-stone-400 mt-0.5 truncate">
+                                          {device.sipUsername || 'No credentials'}
+                                          {device.macAddress && ` · ${device.macAddress}`}
+                                          {deviceContacts.length > 0 && ` · ${deviceContacts.length} contact${deviceContacts.length !== 1 ? 's' : ''}`}
+                                        </p>
+                                      </button>
+
+                                      {/* Device actions */}
+                                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                                        {device.sipUsername ? (
+                                          <>
+                                            <button
+                                              onClick={() => {
+                                                setProvisionDeviceId(device.id);
+                                                setProvisionDeviceType(device.adapterType || 'linksys');
+                                                setShowProvisionModal(true);
+                                              }}
+                                              className="px-2.5 py-1.5 bg-green-100 text-green-800 font-bold rounded-lg hover:bg-green-200 transition text-xs"
+                                            >
+                                              QR Code
+                                            </button>
+                                            <button
+                                              onClick={() => copyProvisionUrl(device.id, device.adapterType || 'linksys')}
+                                              className="px-2.5 py-1.5 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 transition text-xs"
+                                            >
+                                              {copiedId === device.id ? '✓ Copied' : 'Copy URL'}
+                                            </button>
+                                            <button
+                                              onClick={() => resetSip(device.id)}
+                                              disabled={loading[`sip_reset_${device.id}`]}
+                                              className="px-2.5 py-1.5 bg-amber-100 text-amber-800 font-bold rounded-lg hover:bg-amber-200 transition text-xs disabled:opacity-50"
+                                            >
+                                              Reset SIP
+                                            </button>
+                                          </>
+                                        ) : (
+                                          <button
+                                            onClick={() => createSipUser(device.id)}
+                                            disabled={loading[`sip_${device.id}`]}
+                                            className="px-2.5 py-1.5 bg-green-100 text-green-800 font-bold rounded-lg hover:bg-green-200 transition text-xs disabled:opacity-50"
+                                          >
+                                            {loading[`sip_${device.id}`] ? 'Creating...' : 'Create SIP'}
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={() => openEditDevice(device)}
+                                          className="px-2.5 py-1.5 bg-purple-100 text-purple-800 font-bold rounded-lg hover:bg-purple-200 transition text-xs"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          onClick={() => deleteDevice(device.id)}
+                                          className="px-2.5 py-1.5 text-red-600 hover:bg-red-50 font-bold rounded-lg transition text-xs"
+                                        >
+                                          Delete
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Expanded device details */}
+                                    {isDeviceExpanded && (
+                                      <div className="border-t border-stone-100 px-4 py-4 bg-stone-50 space-y-4">
+                                        {/* SIP Credentials */}
+                                        <div>
+                                          <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">SIP Credentials</p>
+                                          {device.sipUsername ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                              {[
+                                                { label: 'Username', value: device.sipUsername },
+                                                { label: 'Password', value: device.sipPassword || '—' },
+                                                { label: 'Domain', value: device.sipDomain || '—' },
+                                              ].map(({ label, value }) => (
+                                                <div key={label}>
+                                                  <p className="text-xs text-stone-400 mb-1">{label}</p>
+                                                  <p className="text-xs font-mono text-stone-800 bg-white px-3 py-2 rounded-lg border border-stone-200 truncate">{value}</p>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <p className="text-sm text-stone-400 italic">No SIP credentials — click &quot;Create SIP&quot; to generate</p>
+                                          )}
+                                        </div>
+
+                                        {/* Device Info */}
+                                        <div>
+                                          <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Device Info</p>
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                            {[
+                                              { label: 'Device ID', value: device.id },
+                                              { label: 'Type', value: adapterLabel },
+                                              { label: 'MAC Address', value: device.macAddress || '—' },
+                                              { label: 'IP Address', value: device.adapterIp || '—' },
+                                            ].map(({ label, value }) => (
+                                              <div key={label}>
+                                                <p className="text-xs text-stone-400 mb-1">{label}</p>
+                                                <p className="text-xs font-mono text-stone-800 bg-white px-3 py-2 rounded-lg border border-stone-200 truncate">{value}</p>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Quick Dial */}
+                                        {deviceContacts.length > 0 && (
+                                          <div>
+                                            <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">
+                                              Quick Dial ({quickDialContacts.length}/9)
+                                            </p>
+                                            <div className="grid grid-cols-5 md:grid-cols-9 gap-1.5">
+                                              {Array.from({ length: 9 }, (_, i) => {
+                                                const slot = i + 1;
+                                                const contact = quickDialContacts.find((c) => c.quickDialSlot === slot);
+                                                return (
+                                                  <div key={slot} className={`text-center rounded-lg p-2 border text-xs ${
+                                                    contact ? 'bg-white border-stone-200' : 'bg-stone-100 border-dashed border-stone-300'
+                                                  }`}>
+                                                    <div className={`font-black ${contact ? 'text-stone-900' : 'text-stone-300'}`}>{slot}</div>
+                                                    {contact ? (
+                                                      <div className="text-stone-600 truncate mt-0.5">{contact.name}</div>
+                                                    ) : (
+                                                      <div className="text-stone-300">—</div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={user.plan}
-                          onChange={(e) => updateUserPlan(user.id, e.target.value)}
-                          disabled={loading[`plan_${user.id}`]}
-                          className="px-3 py-2 rounded-lg border-2 border-stone-200 text-sm font-medium focus:border-[#C4531A] outline-none"
-                        >
-                          <option value="free">Free</option>
-                          <option value="monthly">Monthly</option>
-                          <option value="annual">Annual</option>
-                        </select>
-                        {!user.twilioNumber && (
-                          <button
-                            onClick={() => {
-                              setProvisioningUser(user.id);
-                              setE911Data({ ...e911Data, areaCode: user.areaCode || '' });
-                            }}
-                            className="px-4 py-2 bg-blue-100 text-blue-800 font-bold rounded-xl hover:bg-blue-200 transition text-sm"
-                          >
-                            + Phone Number
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setManualBillingUser(user.id); setShowManualBilling(true); }}
-                          className="px-4 py-2 bg-amber-100 text-amber-800 font-bold rounded-xl hover:bg-amber-200 transition text-sm"
-                        >
-                          Manual Billing
-                        </button>
-                        <button
-                          onClick={() => setSelectedUserId(selectedUserId === user.id ? null : user.id)}
-                          className="px-4 py-2 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition text-sm"
-                        >
-                          {selectedUserId === user.id ? 'Hide' : 'View'} Devices
-                        </button>
-                      </div>
-                    </div>
-
-                    {selectedUserId === user.id && (
-                      <div className="mt-4 p-4 bg-stone-50 rounded-2xl">
-                        <h4 className="font-bold text-stone-900 mb-3">Devices ({userDevices.length})</h4>
-                        {userDevices.length === 0 ? (
-                          <p className="text-sm text-stone-500">No devices</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {userDevices.map((device) => (
-                              <div key={device.id} className="flex items-center justify-between p-3 bg-white rounded-xl">
-                                <div className="flex items-center gap-3">
-                                  <span className={`w-2 h-2 rounded-full ${device.status ? 'bg-green-500' : 'bg-stone-300'}`} />
-                                  <div>
-                                    <p className="text-sm font-bold text-stone-900">{device.name}</p>
-                                    <p className="text-xs text-stone-500">{device.sipUsername || 'No SIP'}</p>
-                                  </div>
-                                </div>
-                                <div className="text-xs text-stone-400">
-                                  {userContacts.filter(c => c.deviceId === device.id).length} contacts
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
 
           </div>
@@ -1181,218 +1445,68 @@ export default function AdminDashboard({
           </div>
         )}
 
-        {/* Devices Tab */}
-        {activeTab === 'devices' && (
-          <div className="space-y-6">
-            
-            <div>
-              <h2 className="text-2xl font-black text-stone-900">All Devices</h2>
-              <p className="text-stone-500 text-sm">Total: {devices.length} devices across {users.length} users</p>
-            </div>
-
-            <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-              <div className="divide-y divide-stone-100">
-                {devices.map((device) => {
-                  const owner = users.find(u => u.id === device.userId);
-                  const deviceContacts = contacts.filter(c => c.deviceId === device.id);
-                  const isExpanded = expandedDeviceId === device.id;
-                  const quickDialContacts = deviceContacts
-                    .filter(c => c.quickDialSlot !== null)
-                    .sort((a, b) => (a.quickDialSlot || 0) - (b.quickDialSlot || 0));
-                  const adapterLabel = device.adapterType === 'grandstream' ? 'Grandstream HT801' 
-                    : device.adapterType === 'linksys' ? 'Linksys SPA2102' 
-                    : device.adapterType || 'Unknown';
-
-                  return (
-                    <div key={device.id} className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={() => toggleDevice(device.id, device.status)}
-                            className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
-                              device.status ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'
-                            }`}
-                          >
-                            {device.status ? '✓' : '○'}
-                          </button>
-                          <div>
-                            <button
-                              onClick={() => setExpandedDeviceId(isExpanded ? null : device.id)}
-                              className="text-left"
-                            >
-                              <h3 className="font-black text-stone-900 hover:text-blue-700 transition">
-                                {device.name}
-                                <span className="ml-2 text-xs text-stone-400">{isExpanded ? '▼' : '▶'}</span>
-                              </h3>
-                            </button>
-                            <p className="text-sm text-stone-500">
-                              {owner?.email} • {adapterLabel} • {deviceContacts.length} contacts
-                              {device.macAddress && ` • MAC: ${device.macAddress}`}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {device.sipUsername ? (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setProvisionDeviceId(device.id);
-                                  setProvisionDeviceType(device.adapterType || 'linksys');
-                                  setShowProvisionModal(true);
-                                }}
-                                className="px-4 py-2 bg-green-100 text-green-800 font-bold rounded-xl hover:bg-green-200 transition text-sm"
-                              >
-                                📱 QR Code
-                              </button>
-                              <button
-                                onClick={() => copyProvisionUrl(device.id, device.adapterType || 'linksys')}
-                                className="px-4 py-2 bg-blue-100 text-blue-800 font-bold rounded-xl hover:bg-blue-200 transition text-sm"
-                              >
-                                {copiedId === device.id ? 'Copied!' : 'Copy URL'}
-                              </button>
-                              <button
-                                onClick={() => resetSip(device.id)}
-                                disabled={loading[`sip_reset_${device.id}`]}
-                                className="px-4 py-2 bg-amber-100 text-amber-800 font-bold rounded-xl hover:bg-amber-200 transition text-sm"
-                              >
-                                Reset SIP
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => createSipUser(device.id)}
-                              disabled={loading[`sip_${device.id}`]}
-                              className="px-4 py-2 bg-green-100 text-green-800 font-bold rounded-xl hover:bg-green-200 transition text-sm"
-                            >
-                              {loading[`sip_${device.id}`] ? 'Creating...' : 'Create SIP'}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => openEditDevice(device)}
-                            disabled={loading[`edit_${device.id}`]}
-                            className="px-4 py-2 bg-purple-100 text-purple-800 font-bold rounded-xl hover:bg-purple-200 transition text-sm"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => deleteDevice(device.id)}
-                            className="px-4 py-2 text-red-600 hover:bg-red-50 font-bold rounded-xl transition text-sm"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Expandable Details */}
-                      {isExpanded && (
-                        <div className="mt-4 ml-16 space-y-4">
-                          {/* SIP Credentials */}
-                          <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-                            <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">SIP Credentials</h4>
-                            {device.sipUsername ? (
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <div>
-                                  <p className="text-xs text-stone-400 mb-1">Username</p>
-                                  <p className="text-sm font-mono text-stone-800 bg-white rounded-lg px-3 py-2 border border-stone-200">{device.sipUsername}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400 mb-1">Password</p>
-                                  <p className="text-sm font-mono text-stone-800 bg-white rounded-lg px-3 py-2 border border-stone-200">{device.sipPassword || '—'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-stone-400 mb-1">SIP Domain</p>
-                                  <p className="text-sm font-mono text-stone-800 bg-white rounded-lg px-3 py-2 border border-stone-200">{device.sipDomain || '—'}</p>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-sm text-stone-400 italic">No SIP credentials — click &quot;Create SIP&quot; to generate</p>
-                            )}
-                          </div>
-
-                          {/* Device Info */}
-                          <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-                            <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">Device Info</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div>
-                                <p className="text-xs text-stone-400 mb-1">Device ID</p>
-                                <p className="text-xs font-mono text-stone-600 bg-white rounded-lg px-3 py-2 border border-stone-200 break-all">{device.id}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-stone-400 mb-1">Type</p>
-                                <p className="text-sm text-stone-800 bg-white rounded-lg px-3 py-2 border border-stone-200">{adapterLabel}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-stone-400 mb-1">MAC Address</p>
-                                <p className="text-sm font-mono text-stone-800 bg-white rounded-lg px-3 py-2 border border-stone-200">{device.macAddress || '—'}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-stone-400 mb-1">IP Address</p>
-                                <p className="text-sm font-mono text-stone-800 bg-white rounded-lg px-3 py-2 border border-stone-200">{device.adapterIp || '—'}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Quick Dial Contacts */}
-                          <div className="bg-stone-50 rounded-2xl p-4 border border-stone-200">
-                            <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-3">
-                              Quick Dial Slots ({quickDialContacts.length} / 9)
-                            </h4>
-                            {quickDialContacts.length > 0 ? (
-                              <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
-                                {Array.from({ length: 9 }, (_, i) => {
-                                  const slot = i + 1;
-                                  const contact = quickDialContacts.find(c => c.quickDialSlot === slot);
-                                  return (
-                                    <div key={slot} className={`text-center rounded-xl p-3 border ${
-                                      contact 
-                                        ? 'bg-white border-stone-200' 
-                                        : 'bg-stone-100 border-dashed border-stone-300'
-                                    }`}>
-                                      <div className={`text-lg font-black ${contact ? 'text-stone-900' : 'text-stone-300'}`}>
-                                        {slot}
-                                      </div>
-                                      {contact ? (
-                                        <>
-                                          <div className="text-xs font-bold text-stone-700 truncate mt-1">{contact.name}</div>
-                                          <div className="text-xs text-stone-400 truncate">
-                                            {contact.contact_type === 'ring_ring_friend' && contact.sip_username
-                                              ? contact.sip_username
-                                              : contact.phone || '—'}
-                                          </div>
-                                        </>
-                                      ) : (
-                                        <div className="text-xs text-stone-300 mt-1">Empty</div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-stone-400 italic">No quick dial contacts assigned</p>
-                            )}
-
-                            {/* Non-quick-dial contacts */}
-                            {deviceContacts.filter(c => c.quickDialSlot === null).length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-stone-200">
-                                <p className="text-xs text-stone-400 mb-2">Other contacts (no slot assigned):</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {deviceContacts.filter(c => c.quickDialSlot === null).map(c => (
-                                    <span key={c.id} className="text-xs bg-white text-stone-600 px-3 py-1 rounded-full border border-stone-200">
-                                      {c.name} — {c.phone || '—'}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+        {/* Add Device Modal */}
+        {showAddDeviceModal && addDeviceUserId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full border-2 border-stone-100">
+              <h3 className="text-xl font-black text-stone-900 mb-2">Add Device</h3>
+              <p className="text-sm text-stone-500 mb-6">
+                Adding device for <span className="font-bold">{users.find(u => u.id === addDeviceUserId)?.email}</span>
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-stone-900 mb-2">Device Name *</label>
+                  <input
+                    className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
+                    placeholder="e.g. Kitchen Phone"
+                    value={addDeviceForm.name}
+                    onChange={(e) => setAddDeviceForm({ ...addDeviceForm, name: e.target.value })}
+                    onKeyDown={(e) => e.key === 'Enter' && addDeviceForUser()}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-900 mb-2">Adapter Type</label>
+                  <select
+                    value={addDeviceForm.adapterType}
+                    onChange={(e) => setAddDeviceForm({ ...addDeviceForm, adapterType: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
+                  >
+                    <option value="grandstream">Grandstream HT801</option>
+                    <option value="linksys">Linksys SPA2102</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-stone-900 mb-2">MAC Address <span className="font-normal text-stone-400">(optional)</span></label>
+                  <input
+                    className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-mono"
+                    placeholder="00:0B:82:XX:XX:XX"
+                    value={addDeviceForm.macAddress}
+                    onChange={(e) => setAddDeviceForm({ ...addDeviceForm, macAddress: e.target.value })}
+                  />
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={addDeviceForUser}
+                    disabled={loading.add_device_for_user || !addDeviceForm.name.trim()}
+                    className="flex-1 px-6 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50"
+                  >
+                    {loading.add_device_for_user ? 'Adding...' : 'Add Device'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddDeviceModal(false);
+                      setAddDeviceUserId(null);
+                      setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '' });
+                    }}
+                    className="px-6 py-3 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-
           </div>
         )}
 
