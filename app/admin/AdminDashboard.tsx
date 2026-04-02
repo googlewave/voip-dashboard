@@ -10,6 +10,7 @@ type User = {
   email: string;
   plan: string;
   twilioNumber: string | null;
+  twilioNumberSid: string | null;
   areaCode: string | null;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
@@ -1511,66 +1512,141 @@ export default function AdminDashboard({
         )}
 
         {/* Billing Tab */}
-        {activeTab === 'billing' && (
-          <div className="space-y-6">
-            
-            <div>
-              <h2 className="text-2xl font-black text-stone-900">Billing Overview</h2>
-              <p className="text-stone-500 text-sm">Revenue and subscription management</p>
-            </div>
+        {activeTab === 'billing' && (() => {
+          const stripePaid = users.filter(u => (u.plan === 'monthly' || u.plan === 'annual') && u.stripeSubscriptionId);
+          const ffPaid = users.filter(u => (u.plan === 'monthly' || u.plan === 'annual') && !u.stripeSubscriptionId);
+          const freeUsers = users.filter(u => u.plan === 'free');
+          const mrr = stripePaid.reduce((sum, u) => sum + (u.plan === 'monthly' ? 8.95 : 85.80 / 12), 0);
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                <div className="text-sm font-bold text-stone-500 mb-2">Total Users</div>
-                <div className="text-3xl font-black text-stone-900">{users.length}</div>
+          return (
+            <div className="space-y-6">
+
+              <div>
+                <h2 className="text-2xl font-black text-stone-900">Billing Overview</h2>
+                <p className="text-stone-500 text-sm">Revenue and subscription management</p>
               </div>
-              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                <div className="text-sm font-bold text-stone-500 mb-2">Paid Plans</div>
-                <div className="text-3xl font-black text-[#C4531A]">
-                  {users.filter(u => u.plan === 'monthly' || u.plan === 'annual').length}
+
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-2xl p-5 border-2 border-stone-100">
+                  <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-1">Stripe Paying</div>
+                  <div className="text-3xl font-black text-[#C4531A]">{stripePaid.length}</div>
+                  <div className="text-xs text-stone-400 mt-1">active Stripe subscriptions</div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border-2 border-stone-100">
+                  <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-1">Friends &amp; Family</div>
+                  <div className="text-3xl font-black text-purple-600">{ffPaid.length}</div>
+                  <div className="text-xs text-stone-400 mt-1">manually granted paid plan</div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border-2 border-stone-100">
+                  <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-1">Free</div>
+                  <div className="text-3xl font-black text-stone-500">{freeUsers.length}</div>
+                  <div className="text-xs text-stone-400 mt-1">Ring Ring–only plan</div>
+                </div>
+                <div className="bg-white rounded-2xl p-5 border-2 border-[#C4531A]/20">
+                  <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-1">Est. MRR</div>
+                  <div className="text-3xl font-black text-green-700">${mrr.toFixed(2)}</div>
+                  <div className="text-xs text-stone-400 mt-1">Stripe only, excl. F&amp;F</div>
                 </div>
               </div>
-              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                <div className="text-sm font-bold text-stone-500 mb-2">Free Plans</div>
-                <div className="text-3xl font-black text-stone-900">
-                  {users.filter(u => u.plan === 'free').length}
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-white rounded-3xl border-2 border-stone-100 overflow-hidden">
-              <div className="p-6 border-b border-stone-100">
-                <h3 className="text-lg font-black text-stone-900">User Plans</h3>
-              </div>
-              <div className="divide-y divide-stone-100">
-                {users.map((user) => (
-                  <div key={user.id} className="p-6 flex items-center justify-between">
-                    <div>
-                      <p className="font-bold text-stone-900">{user.email}</p>
-                      <p className="text-sm text-stone-500">
-                        {user.stripeCustomerId ? `Stripe: ${user.stripeCustomerId.slice(0, 20)}...` : 'No Stripe customer'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${
-                        user.plan === 'free' ? 'bg-stone-100 text-stone-600' : 'bg-[#C4531A] text-white'
-                      }`}>
-                        {user.plan === 'free' ? 'Free' : user.plan === 'annual' ? 'Annual ($85.80/yr)' : 'Monthly ($8.95/mo)'}
-                      </span>
-                      <button
-                        onClick={() => { setManualBillingUser(user.id); setShowManualBilling(true); }}
-                        className="px-4 py-2 bg-amber-100 text-amber-800 font-bold rounded-xl hover:bg-amber-200 transition text-sm"
-                      >
-                        Manual Billing
-                      </button>
-                    </div>
+              {/* F&F notice if any */}
+              {ffPaid.length > 0 && (
+                <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl px-5 py-4 flex items-start gap-3">
+                  <span className="text-purple-500 text-lg">ℹ️</span>
+                  <p className="text-sm text-purple-800">
+                    <span className="font-bold">{ffPaid.length} user{ffPaid.length !== 1 ? 's are' : ' is'} on a paid plan without an active Stripe subscription</span> — these are Friends &amp; Family accounts granted access manually via the admin. They will <span className="font-bold">not</span> generate Stripe revenue and won&apos;t renew automatically.
+                  </p>
+                </div>
+              )}
+
+              {/* User list */}
+              <div className="bg-white rounded-2xl border-2 border-stone-100 overflow-hidden">
+                <div className="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
+                  <h3 className="font-black text-stone-900">All Users</h3>
+                  <div className="flex items-center gap-3 text-xs font-semibold text-stone-400">
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#C4531A] inline-block" /> Stripe</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block" /> F&amp;F</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-stone-300 inline-block" /> Free</span>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+                <div className="divide-y divide-stone-100">
+                  {users.map((user) => {
+                    const isPaid = user.plan === 'monthly' || user.plan === 'annual';
+                    const isStripe = isPaid && !!user.stripeSubscriptionId;
+                    const isFF = isPaid && !user.stripeSubscriptionId;
+                    const billingSource = isStripe ? 'stripe' : isFF ? 'ff' : 'free';
 
-          </div>
-        )}
+                    return (
+                      <div key={user.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                            billingSource === 'stripe' ? 'bg-[#C4531A]'
+                            : billingSource === 'ff' ? 'bg-purple-400'
+                            : 'bg-stone-300'
+                          }`} />
+                          <div className="min-w-0">
+                            <p className="font-bold text-stone-900 text-sm truncate">{user.email}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              {user.twilioNumber && (
+                                <span className="text-xs font-mono text-stone-500">{user.twilioNumber}</span>
+                              )}
+                              {isStripe && user.stripeCustomerId && (
+                                <span className="text-xs text-stone-400 font-mono">
+                                  {user.stripeCustomerId.slice(0, 18)}…
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                          {/* Plan badge */}
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                            user.plan === 'free' ? 'bg-stone-100 text-stone-500'
+                            : 'bg-[#C4531A]/10 text-[#C4531A]'
+                          }`}>
+                            {user.plan === 'free' ? 'Free' : user.plan === 'annual' ? 'Annual' : 'Monthly'}
+                          </span>
+
+                          {/* Billing source badge */}
+                          {isStripe && (
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#C4531A] text-white">
+                              Stripe ✓
+                            </span>
+                          )}
+                          {isFF && (
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
+                              F&amp;F / Manual
+                            </span>
+                          )}
+
+                          {/* Sub ID or note */}
+                          {isStripe && user.stripeSubscriptionId && (
+                            <span className="text-xs text-stone-400 font-mono hidden md:inline">
+                              sub: {user.stripeSubscriptionId.slice(0, 14)}…
+                            </span>
+                          )}
+                          {isFF && (
+                            <span className="text-xs text-purple-400 hidden md:inline">no Stripe sub</span>
+                          )}
+
+                          <button
+                            onClick={() => { setManualBillingUser(user.id); setShowManualBilling(true); }}
+                            className="px-3 py-1.5 bg-amber-100 text-amber-800 font-bold rounded-lg hover:bg-amber-200 transition text-xs"
+                          >
+                            Manual Billing
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
 
         {/* System Tab */}
         {activeTab === 'system' && (

@@ -20,6 +20,7 @@ export async function GET() {
       areaCode: true,
       stripeCustomerId: true,
       stripeSubId: true,
+      twilioNumberSid: true,
     },
   });
 
@@ -40,9 +41,10 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    users: users.map(u => ({
+    users: users.map((u) => ({
       ...u,
       stripeSubscriptionId: u.stripeSubId || null,
+      twilioNumberSid: u.twilioNumberSid || null,
     })),
     devices: devices.map(d => ({
       ...d,

@@ -20,6 +20,7 @@ export default async function AdminPage() {
       areaCode: true,
       stripeCustomerId: true,
       stripeSubId: true,
+      twilioNumberSid: true,
     },
   });
 
@@ -36,6 +37,7 @@ export default async function AdminPage() {
       initialUsers={users.map(u => ({
         ...u,
         stripeSubscriptionId: u.stripeSubId || null,
+        twilioNumberSid: u.twilioNumberSid || null,
       }))}
       initialDevices={devices.map(d => ({
         ...d,

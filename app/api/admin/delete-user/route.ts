@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import twilio from 'twilio';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
@@ -7,6 +8,25 @@ export async function POST(req: NextRequest) {
     const { userId } = await req.json();
     if (!userId) {
       return NextResponse.json({ error: 'userId required' }, { status: 400 });
+    }
+
+    // 0. Release Twilio phone number so we stop being billed for it
+    const userData = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { twilioNumberSid: true, twilioNumber: true },
+    });
+    if (userData?.twilioNumberSid) {
+      try {
+        const twilioClient = twilio(
+          process.env.TWILIO_ACCOUNT_SID!,
+          process.env.TWILIO_AUTH_TOKEN!
+        );
+        await twilioClient.incomingPhoneNumbers(userData.twilioNumberSid).remove();
+        console.log(`Released Twilio number ${userData.twilioNumber} (${userData.twilioNumberSid})`);
+      } catch (twilioErr: any) {
+        // Log but don't block deletion — number may already be released
+        console.error('Failed to release Twilio number:', twilioErr.message);
+      }
     }
 
     // 1. Delete contacts
