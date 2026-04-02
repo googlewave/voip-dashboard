@@ -158,20 +158,20 @@ export default function TrustedContactsManager({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-black text-stone-900 text-sm">
+          <h3 className="font-black text-stone-900 text-base leading-tight">
             Trusted Contacts{deviceName ? ` — ${deviceName}` : ''}
           </h3>
-          <p className="text-xs text-stone-400 mt-0.5">
+          <p className="text-sm text-stone-500 mt-0.5">
             {contacts.length} on safe list · {assignedCount}/9 keys assigned
           </p>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="px-3 py-1.5 bg-[#C4531A] text-white font-bold rounded-full hover:bg-[#a84313] transition text-xs"
+          className="shrink-0 px-4 py-2 bg-[#C4531A] text-white font-bold rounded-full hover:bg-[#a84313] transition text-sm"
         >
           {showAddForm ? '✕ Cancel' : '+ Add Contact'}
         </button>
@@ -185,20 +185,20 @@ export default function TrustedContactsManager({
             <div className="flex gap-2">
               <button
                 onClick={() => setForm((f) => ({ ...f, type: 'phone_number' }))}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${
                   form.type === 'phone_number'
                     ? 'bg-[#C4531A] text-white'
-                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+                    : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50'
                 }`}
               >
                 📞 Phone Number
               </button>
               <button
                 onClick={() => setForm((f) => ({ ...f, type: 'ring_ring_friend' }))}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition ${
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition ${
                   form.type === 'ring_ring_friend'
                     ? 'bg-[#C4531A] text-white'
-                    : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
+                    : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-50'
                 }`}
               >
                 👥 Ring Ring Friend
@@ -207,7 +207,7 @@ export default function TrustedContactsManager({
           )}
 
           <input
-            className="w-full px-3 py-2.5 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm"
+            className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm text-stone-900 placeholder:text-stone-400"
             placeholder="Contact name"
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -217,7 +217,7 @@ export default function TrustedContactsManager({
 
           {form.type === 'phone_number' ? (
             <input
-              className="w-full px-3 py-2.5 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm font-mono"
+              className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm font-mono text-stone-900 placeholder:text-stone-400"
               placeholder="+1 (555) 000-0000"
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -227,7 +227,7 @@ export default function TrustedContactsManager({
             <select
               value={form.friendDeviceId}
               onChange={(e) => setForm((f) => ({ ...f, friendDeviceId: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm"
+              className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm text-stone-900"
             >
               <option value="">Select friend&apos;s device…</option>
               {friendDevices.map((d) => (
@@ -245,13 +245,13 @@ export default function TrustedContactsManager({
               !form.name.trim() ||
               (form.type === 'phone_number' ? !form.phone.trim() : !form.friendDeviceId)
             }
-            className="w-full px-4 py-2.5 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition text-sm disabled:opacity-50"
+            className="w-full px-4 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition text-sm disabled:opacity-50"
           >
             {saving ? 'Adding…' : 'Add to Safe List'}
           </button>
 
           {form.type === 'ring_ring_friend' && friendDevices.length === 0 && (
-            <p className="text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2">
+            <p className="text-sm text-amber-800 bg-amber-100 rounded-xl px-4 py-3">
               No friends connected yet. Go to the Friends tab to connect another family.
             </p>
           )}
@@ -263,12 +263,12 @@ export default function TrustedContactsManager({
 
         {/* Left: Safe Contact List */}
         <div className="lg:col-span-2 space-y-2">
-          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+          <p className="text-xs font-bold text-stone-500 uppercase tracking-wider">
             Safe List — drag to assign a key
           </p>
 
           {contacts.length === 0 ? (
-            <div className="py-8 text-center text-stone-400 text-sm border-2 border-dashed border-stone-200 rounded-2xl">
+            <div className="py-10 text-center text-stone-500 text-sm font-medium border-2 border-dashed border-stone-200 rounded-2xl">
               <div className="text-3xl mb-2">👥</div>
               No contacts yet
             </div>
@@ -291,12 +291,12 @@ export default function TrustedContactsManager({
                 }`}
               >
                 {/* Drag handle */}
-                <span className="text-stone-300 text-base leading-none select-none flex-shrink-0">⠿</span>
+                <span className="text-stone-400 text-base leading-none select-none flex-shrink-0">⠿</span>
 
                 {/* Contact info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-stone-900 truncate leading-tight">{contact.name}</p>
-                  <p className="text-[11px] text-stone-400 truncate mt-0.5">
+                  <p className="text-xs text-stone-500 truncate mt-0.5">
                     {contact.contactType === 'ring_ring_friend'
                       ? '👥 Ring Ring Friend'
                       : contact.phone || '—'}
@@ -305,7 +305,7 @@ export default function TrustedContactsManager({
 
                 {/* Key badge */}
                 {contact.quickDialSlot !== null && (
-                  <span className="w-6 h-6 rounded-full bg-[#C4531A] text-white text-[11px] font-black flex items-center justify-center flex-shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-[#C4531A] text-white text-xs font-black flex items-center justify-center flex-shrink-0">
                     {contact.quickDialSlot}
                   </span>
                 )}
@@ -323,7 +323,7 @@ export default function TrustedContactsManager({
                   }}
                   disabled={saving}
                   onClick={(e) => e.stopPropagation()}
-                  className="text-[10px] bg-stone-100 border-0 rounded-lg px-1.5 py-1 text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#C4531A] flex-shrink-0 cursor-pointer"
+                  className="text-xs bg-stone-100 border-0 rounded-lg px-2 py-1.5 text-stone-700 font-medium focus:outline-none focus:ring-1 focus:ring-[#C4531A] flex-shrink-0 cursor-pointer"
                 >
                   <option value="">Key —</option>
                   {Array.from({ length: 9 }, (_, i) => i + 1).map((s) => (
@@ -336,7 +336,7 @@ export default function TrustedContactsManager({
                 {/* Delete */}
                 <button
                   onClick={() => deleteContact(contact.id)}
-                  className="text-stone-300 hover:text-red-500 transition text-xs flex-shrink-0 ml-0.5"
+                  className="text-stone-400 hover:text-red-500 transition text-sm flex-shrink-0 ml-0.5 leading-none"
                   title="Remove contact"
                 >
                   ✕
@@ -348,7 +348,7 @@ export default function TrustedContactsManager({
 
         {/* Right: Phone Keypad */}
         <div className="lg:col-span-3">
-          <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-2">
+          <p className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-2">
             Quick Dial Keys — drop contacts here
           </p>
 
@@ -365,18 +365,18 @@ export default function TrustedContactsManager({
                   handleDrop(slot);
                 }}
                 onDragLeave={() => setDragOverSlot((cur) => (cur === slot ? null : cur))}
-                className={`relative aspect-square rounded-2xl border-2 flex flex-col items-center justify-center px-2 text-center transition ${
+                className={`relative min-h-[80px] rounded-2xl border-2 flex flex-col items-center justify-center px-2 py-3 text-center transition ${
                   dragOverSlot === slot
                     ? 'border-[#C4531A] bg-[#C4531A]/10 scale-105 shadow-md'
                     : assignedContact
                     ? 'border-amber-200 bg-amber-50'
-                    : 'border-dashed border-stone-200 bg-white hover:border-stone-300'
+                    : 'border-dashed border-stone-300 bg-white hover:border-stone-400'
                 }`}
               >
                 {/* Key number */}
                 <div
                   className={`text-xl font-black leading-none ${
-                    assignedContact ? 'text-[#C4531A]' : 'text-stone-200'
+                    assignedContact ? 'text-[#C4531A]' : 'text-stone-300'
                   }`}
                 >
                   {slot}
@@ -385,10 +385,10 @@ export default function TrustedContactsManager({
                 {/* Assigned contact info */}
                 {assignedContact ? (
                   <>
-                    <p className="text-[11px] font-bold text-stone-700 truncate w-full text-center mt-1 leading-tight px-1">
+                    <p className="text-xs font-bold text-stone-800 truncate w-full text-center mt-1.5 leading-snug px-1">
                       {assignedContact.name}
                     </p>
-                    <p className="text-[9px] text-stone-400 truncate w-full text-center px-1">
+                    <p className="text-xs text-stone-500 truncate w-full text-center px-1 mt-0.5">
                       {assignedContact.contactType === 'ring_ring_friend'
                         ? 'RR Friend'
                         : assignedContact.phone}
@@ -397,14 +397,14 @@ export default function TrustedContactsManager({
                     <button
                       onClick={() => void assignSlot(assignedContact.id, null)}
                       disabled={saving}
-                      className="absolute top-1 right-1 w-4 h-4 rounded-full bg-stone-200 hover:bg-red-100 hover:text-red-600 text-stone-400 text-[9px] flex items-center justify-center transition"
+                      className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-stone-200 hover:bg-red-100 hover:text-red-600 text-stone-500 text-xs flex items-center justify-center transition leading-none"
                       title="Clear key"
                     >
                       ✕
                     </button>
                   </>
                 ) : (
-                  <p className="text-[9px] text-stone-300 mt-1">drop here</p>
+                  <p className="text-xs text-stone-400 mt-1.5">drop here</p>
                 )}
               </div>
             ))}
@@ -413,7 +413,7 @@ export default function TrustedContactsManager({
             {['✱', '0', '#'].map((k) => (
               <div
                 key={k}
-                className="aspect-square rounded-2xl border border-stone-100 bg-stone-50 flex items-center justify-center text-lg font-black text-stone-200 select-none"
+                className="min-h-[80px] rounded-2xl border border-stone-200 bg-stone-50 flex items-center justify-center text-xl font-black text-stone-400 select-none"
               >
                 {k}
               </div>
