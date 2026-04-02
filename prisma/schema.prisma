@@ -45,7 +45,7 @@ model Device {
   quietHoursEnabled  Boolean?  @default(false) @map("quiet_hours_enabled")
   quietHoursStart    String?   @map("quiet_hours_start")
   quietHoursEnd      String?   @map("quiet_hours_end")
-  usageCapEnabled    Boolean?  @default(false) @map("usage_cap_enabled")
+  usageCapEnabled    Boolean   @default(false) @map("usage_cap_enabled")
   usageCapMinutes    Int?      @map("usage_cap_minutes")
   lastProvisionedAt  DateTime? @map("last_provisioned_at") @db.Timestamp(6)
   provisioningStatus String?   @default("pending") @map("provisioning_status") @db.VarChar(50)

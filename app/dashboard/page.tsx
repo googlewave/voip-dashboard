@@ -31,6 +31,7 @@ interface Device {
   quiet_hours_end: string | null;
   usage_cap_enabled: boolean;
   usage_cap_minutes: number | null;
+  phone_number: string | null;
   contacts?: Contact[];
 }
 
@@ -302,6 +303,7 @@ function DashboardInner() {
         user_id: user.id,
         quiet_hours_enabled: false,
         usage_cap_enabled: false,
+        phone_number: profile?.twilio_number ?? null,
       })
       .select()
       .single();
@@ -576,6 +578,12 @@ function DashboardInner() {
                                 )}
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-sm text-stone-500">
+                                {device.phone_number ? (
+                                  <span className="font-mono font-bold text-blue-600">{device.phone_number}</span>
+                                ) : (
+                                  <span className="text-stone-400">No line connected</span>
+                                )}
+                                <span>·</span>
                                 <span>{device.contacts?.length ?? 0} contacts</span>
                                 {device.quiet_hours_enabled && <span>🌙 Quiet hours</span>}
                                 {device.usage_cap_enabled && <span>⏱️ Usage cap</span>}
@@ -851,24 +859,59 @@ function DashboardInner() {
         {activeTab === 'contacts' && (
           <div className="space-y-6">
 
+            {!selectedDevice && devices.length > 0 && (
+              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                <h2 className="text-lg font-black text-stone-900 mb-1">Which device?</h2>
+                <p className="text-sm text-stone-500 mb-5">Select a device to manage its trusted contacts.</p>
+                <div className="grid gap-3">
+                  {devices.map((device) => (
+                    <button
+                      key={device.id}
+                      onClick={() => { applySelectedDevice(device); void fetchFriendDevices(); }}
+                      className="flex items-center gap-4 p-4 rounded-2xl border-2 border-stone-200 hover:border-[#C4531A] hover:bg-orange-50 transition text-left"
+                    >
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${
+                        device.status ? 'bg-green-100 text-green-700' : 'bg-stone-100 text-stone-400'
+                      }`}>
+                        {device.status ? '✓' : '○'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-stone-900">{device.name}</p>
+                        <p className="text-sm text-stone-500 truncate">
+                          {device.phone_number
+                            ? <span className="font-mono text-blue-600">{device.phone_number}</span>
+                            : 'No line connected'
+                          }
+                          {' · '}{device.contacts?.length ?? 0} contacts
+                        </p>
+                      </div>
+                      <span className="ml-auto text-stone-300 text-lg">›</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedDevice ? (
               <>
-                {/* Device Selector */}
-                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                  <label className="block text-sm font-bold text-stone-900 mb-2">Selected Device</label>
-                  <select
-                    value={selectedDevice.id}
-                    onChange={(e) => {
-                      const device = devices.find((d) => d.id === e.target.value);
-                      if (device) applySelectedDevice(device);
-                    }}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-medium"
-                  >
-                    {devices.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {/* Device Selector (switcher when already selected) */}
+                {devices.length > 1 && (
+                  <div className="bg-white rounded-3xl p-4 border-2 border-stone-100 flex items-center gap-3">
+                    <span className="text-sm font-bold text-stone-500 shrink-0">Device:</span>
+                    <select
+                      value={selectedDevice.id}
+                      onChange={(e) => {
+                        const device = devices.find((d) => d.id === e.target.value);
+                        if (device) applySelectedDevice(device);
+                      }}
+                      className="flex-1 px-3 py-2 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-medium text-sm"
+                    >
+                      {devices.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Trusted Contacts Manager */}
                 <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">

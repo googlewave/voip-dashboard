@@ -32,6 +32,7 @@ type Device = {
   quietHoursEnd: string | null;
   usageCapEnabled: boolean;
   usageCapMinutes: number | null;
+  phoneNumber: string | null;
 };
 
 type Contact = {
@@ -101,7 +102,7 @@ export default function AdminDashboard({
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
   const [addDeviceUserId, setAddDeviceUserId] = useState<string | null>(null);
-  const [addDeviceForm, setAddDeviceForm] = useState({ name: '', adapterType: 'grandstream', macAddress: '' });
+  const [addDeviceForm, setAddDeviceForm] = useState({ name: '', adapterType: 'grandstream', macAddress: '', phoneNumber: '' });
 
   const refreshData = async () => {
     const res = await fetch('/api/admin/data');
@@ -335,13 +336,14 @@ export default function AdminDashboard({
           name: addDeviceForm.name.trim(),
           adapterType: addDeviceForm.adapterType,
           macAddress: addDeviceForm.macAddress.trim() || undefined,
+          phoneNumber: addDeviceForm.phoneNumber || undefined,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setShowAddDeviceModal(false);
         setAddDeviceUserId(null);
-        setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '' });
+        setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '', phoneNumber: '' });
         await refreshData();
       } else {
         alert(data.error || 'Failed to add device');
@@ -647,7 +649,11 @@ export default function AdminDashboard({
                                           }
                                         </div>
                                         <p className="text-xs text-stone-400 mt-0.5 truncate">
-                                          {device.sipUsername || 'No credentials'}
+                                          {device.phoneNumber
+                                            ? <span className="font-mono text-blue-600 font-semibold">{device.phoneNumber}</span>
+                                            : <span className="text-amber-500">No line</span>
+                                          }
+                                          {' · '}{device.sipUsername || 'No SIP creds'}
                                           {device.macAddress && ` · ${device.macAddress}`}
                                           {deviceContacts.length > 0 && ` · ${deviceContacts.length} contact${deviceContacts.length !== 1 ? 's' : ''}`}
                                         </p>
@@ -971,6 +977,26 @@ export default function AdminDashboard({
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-bold text-stone-900 mb-2">Phone Line</label>
+                  {(() => {
+                    const addUser = users.find(u => u.id === addDeviceUserId);
+                    const userNumber = addUser?.twilioNumber;
+                    return userNumber ? (
+                      <select
+                        value={addDeviceForm.phoneNumber || userNumber}
+                        onChange={(e) => setAddDeviceForm({ ...addDeviceForm, phoneNumber: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-mono"
+                      >
+                        <option value={userNumber}>{userNumber}</option>
+                      </select>
+                    ) : (
+                      <div className="px-4 py-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm text-stone-400">
+                        No phone line provisioned for this user yet
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div>
                   <label className="block text-sm font-bold text-stone-900 mb-2">MAC Address <span className="font-normal text-stone-400">(optional)</span></label>
                   <input
                     className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-mono"
@@ -991,7 +1017,7 @@ export default function AdminDashboard({
                     onClick={() => {
                       setShowAddDeviceModal(false);
                       setAddDeviceUserId(null);
-                      setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '' });
+                      setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '', phoneNumber: '' });
                     }}
                     className="px-6 py-3 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition"
                   >

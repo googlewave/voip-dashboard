@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, name, adapterType, macAddress } = await req.json();
+    const { userId, name, adapterType, macAddress, phoneNumber } = await req.json();
 
     if (!userId || !name) {
       return NextResponse.json(
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
         adapterType,
         macAddress: normalizedMac,
         isOnline: false,
+        phoneNumber: phoneNumber || null,
       },
       select: {
         id: true,
