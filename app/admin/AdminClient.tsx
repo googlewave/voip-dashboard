@@ -49,7 +49,7 @@ export default function AdminClient({
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAddDevice, setShowAddDevice] = useState<string | null>(null);
-  const [newDevice, setNewDevice] = useState({ name: '', adapterType: 'linksys' });
+  const [newDevice, setNewDevice] = useState({ name: '', adapterType: 'linksys', macAddress: '' });
   const [addingDevice, setAddingDevice] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
@@ -62,9 +62,29 @@ export default function AdminClient({
   const [addUserError, setAddUserError] = useState('');
   const [addUserSuccess, setAddUserSuccess] = useState('');
 
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     router.push('/landing');
+  };
+
+  const cleanupSip = async () => {
+    if (!confirm('Delete all orphaned SIP users from Twilio? This cannot be undone.')) return;
+    setLoading((prev) => ({ ...prev, cleanup_sip: true }));
+    try {
+      const res = await fetch('/api/admin/sip/cleanup', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setCleanupResult(`✅ Deleted ${data.deleted} orphaned SIP user${data.deleted !== 1 ? 's' : ''} (${data.kept} kept)`);
+      } else {
+        setCleanupResult(`❌ ${data.error}`);
+      }
+    } catch (err: any) {
+      setCleanupResult(`❌ ${err.message}`);
+    }
+    setLoading((prev) => ({ ...prev, cleanup_sip: false }));
+    setTimeout(() => setCleanupResult(null), 5000);
   };
 
   const addUser = async () => {
@@ -96,8 +116,9 @@ export default function AdminClient({
     setAddingUser(false);
   };
 
-  const copyProvisionUrl = (deviceId: string) => {
-    const url = `${window.location.origin}/api/provision/${deviceId}/linksys.cfg`;
+  const copyProvisionUrl = (deviceId: string, adapterType: string | null) => {
+    const cfgFile = adapterType === 'grandstream' ? 'grandstream.cfg' : 'linksys.cfg';
+    const url = `${window.location.origin}/api/provision/${deviceId}/${cfgFile}`;
     navigator.clipboard.writeText(url);
     setCopiedId(deviceId);
     setTimeout(() => setCopiedId(null), 2000);
@@ -154,7 +175,7 @@ export default function AdminClient({
       const data = await res.json();
       if (res.ok && data.device) {
         setDevices((prev) => [...prev, data.device]);
-        setNewDevice({ name: '', adapterType: 'linksys' });
+        setNewDevice({ name: '', adapterType: 'linksys', macAddress: '' });
         setShowAddDevice(null);
       } else {
         alert(data.error ?? 'Failed');
@@ -285,6 +306,14 @@ export default function AdminClient({
             + Add User
           </button>
           <button
+            onClick={cleanupSip}
+            disabled={loading['cleanup_sip']}
+            className="px-4 py-2 bg-red-900 hover:bg-red-800 disabled:opacity-50 text-white rounded-lg transition text-sm font-medium"
+            title="Delete orphaned SIP users from Twilio"
+          >
+            {loading['cleanup_sip'] ? 'Cleaning...' : '🧹 Cleanup SIP'}
+          </button>
+          <button
             onClick={signOut}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition text-sm font-medium"
           >
@@ -292,6 +321,13 @@ export default function AdminClient({
           </button>
         </div>
       </div>
+
+      {/* Cleanup SIP Result Toast */}
+      {cleanupResult && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-slate-800 border border-slate-600 text-sm text-white">
+          {cleanupResult}
+        </div>
+      )}
 
       {/* Add User Modal */}
       {showAddUser && (
@@ -537,10 +573,30 @@ export default function AdminClient({
                             onChange={(e) => setNewDevice((prev) => ({ ...prev, adapterType: e.target.value }))}
                             className="bg-slate-700 text-white text-sm rounded px-3 py-2 border border-slate-600 focus:outline-none"
                           >
-                            <option value="linksys">Linksys</option>
-                            <option value="grandstream">Grandstream</option>
+                            <option value="linksys">Linksys SPA2102</option>
+                            <option value="grandstream">Grandstream HT801</option>
                             <option value="other">Other</option>
                           </select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 mb-1 block">MAC Address <span className="text-slate-500">(optional)</span></label>
+                          <input
+                            type="text"
+                            placeholder="e.g. C0:74:AD:12:34:56"
+                            value={newDevice.macAddress}
+                            onChange={(e) => {
+                              let val = e.target.value.toUpperCase().replace(/[^A-F0-9:]/g, '');
+                              // Auto-insert colons
+                              const hex = val.replace(/:/g, '');
+                              if (hex.length > 2 && !val.includes(':')) {
+                                val = hex.match(/.{1,2}/g)?.join(':') || val;
+                              }
+                              if (val.length <= 17) {
+                                setNewDevice((prev) => ({ ...prev, macAddress: val }));
+                              }
+                            }}
+                            className="bg-slate-700 text-white text-sm rounded px-3 py-2 border border-slate-600 focus:outline-none focus:border-blue-500 font-mono"
+                          />
                         </div>
                         <button
                           onClick={() => addDevice(u.id)}
@@ -598,7 +654,7 @@ export default function AdminClient({
                                   </button>
                                   {d.sipUsername && (
                                     <button
-                                      onClick={() => copyProvisionUrl(d.id)}
+                                      onClick={() => copyProvisionUrl(d.id, d.adapterType)}
                                       className="text-xs text-blue-400 hover:text-blue-300 transition"
                                     >
                                       {copiedId === d.id ? <span className="text-green-400">✅ Copied!</span> : '📋 Copy URL'}

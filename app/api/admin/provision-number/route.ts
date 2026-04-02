@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 import { prisma } from '@/lib/prisma';
+import { sendPhoneProvisionedEmail } from '@/lib/email';
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID!,
@@ -63,10 +64,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Save to Prisma
-    await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: userId },
       data: { twilioNumber: purchased.phoneNumber },
     });
+
+    // 5. Send email notification
+    try {
+      await sendPhoneProvisionedEmail({
+        to: user.email,
+        name: e911?.customerName || user.email.split('@')[0],
+        phoneNumber: purchased.phoneNumber,
+      });
+    } catch (emailErr: any) {
+      console.error('Failed to send phone provisioned email:', emailErr.message);
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,14 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-function generateGrandstreamConfig(device: any) {
+const DEFAULT_PROVISION_INTERVAL_MINUTES = 5;
+
+function getProvisionIntervalMinutes() {
+  const raw = process.env.HT801_PROVISION_INTERVAL_MINUTES;
+  const parsed = raw ? Number(raw) : DEFAULT_PROVISION_INTERVAL_MINUTES;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_PROVISION_INTERVAL_MINUTES;
+}
+
+type GrandstreamProvisionDevice = {
+  id: string;
+  userId: string;
+  name: string;
+  sipUsername: string | null;
+  sipPassword: string | null;
+  sipDomain: string | null;
+  macAddress: string | null;
+  adapterType: string | null;
+};
+
+type ProvisionContact = {
+  quickDialSlot: number | null;
+  phoneNumber: string | null;
+  sipAddress: string | null;
+};
+
+function normalizePhoneNumber(raw: string) {
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+
+  return `+${digits}`;
+}
+
+function generateGrandstreamConfig(device: GrandstreamProvisionDevice, contacts: ProvisionContact[]) {
+  const sipDomain = device.sipDomain ?? 'ringringclub.sip.twilio.com';
+  const provisionIntervalMinutes = getProvisionIntervalMinutes();
+  const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
+    const slot = i + 1;
+    const pCode = 300 + slot;
+    const contact = contacts.find((c) => c.quickDialSlot === slot);
+
+    if (!contact) {
+      return `    <P${pCode}></P${pCode}>`;
+    }
+
+    const normalizedSip = contact.sipAddress?.replace(/^sip:/, '') || '';
+    if (normalizedSip) {
+      return `    <P${pCode}>${normalizedSip}</P${pCode}>`;
+    }
+
+    if (contact.phoneNumber) {
+      return `    <P${pCode}>${normalizePhoneNumber(contact.phoneNumber)}</P${pCode}>`;
+    }
+
+    return `    <P${pCode}></P${pCode}>`;
+  }).join('\n');
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gs_provision version="1">
+  <mac>${device.macAddress?.replace(/:/g, '').toLowerCase()}</mac>
   <config version="1">
 
     <!-- SIP Server -->
-    <P47>ringringclub.sip.twilio.com</P47>
-    <P48>5060</P48>
+    <P47>${sipDomain}</P47>
+    <P48></P48>
 
     <!-- SIP Credentials -->
     <P35>${device.sipUsername}</P35>
@@ -27,6 +91,12 @@ function generateGrandstreamConfig(device: any) {
     <!-- SIP Transport: TCP (P130=1) -->
     <P130>1</P130>
 
+    <!-- DNS Mode: NAPTR/SRV (P37=2) -->
+    <P37>2</P37>
+
+    <!-- Auto Provision Check Interval (minutes) -->
+    <P193>${provisionIntervalMinutes}</P193>
+
     <!-- Audio Codecs: G.711u, G.711a, G.729 -->
     <P57>0</P57>
     <P58>8</P58>
@@ -43,6 +113,9 @@ function generateGrandstreamConfig(device: any) {
 
     <!-- SRTP: Disabled (Twilio SIP domains use RTP) -->
     <P183>0</P183>
+
+    <!-- Speed Dial Slots 1-9 -->
+${speedDialEntries}
 
   </config>
 </gs_provision>`;
@@ -69,7 +142,7 @@ export async function GET(
   // - cfg<MAC> (no extension)
   // - C0:74:AD:12:34:56 (colon-separated)
   // - c074ad123456 (raw hex)
-  let mac = rawParam
+  const mac = rawParam
     .toLowerCase()
     .replace(/^cfg/, '')       // strip "cfg" prefix
     .replace(/\.xml$/, '')     // strip ".xml" suffix
@@ -84,20 +157,25 @@ export async function GET(
 
   // Format as colon-separated for DB lookup (stored as AA:BB:CC:DD:EE:FF)
   const formattedMac = mac.match(/.{2}/g)!.join(':').toUpperCase();
-  // Also try lowercase version
-  const formattedMacLower = formattedMac.toLowerCase();
 
   try {
-    // Look up device by MAC address
-    const device = await prisma.device.findFirst({
-      where: {
-        OR: [
-          { macAddress: formattedMac },
-          { macAddress: formattedMacLower },
-          { macAddress: mac }, // raw hex
-        ],
-      },
-    });
+    // Look up device by normalized MAC (strip separators, lowercase)
+    const devices = await prisma.$queryRaw<GrandstreamProvisionDevice[]>`
+      SELECT
+        id,
+        user_id AS "userId",
+        name,
+        sip_username AS "sipUsername",
+        sip_password AS "sipPassword",
+        sip_domain AS "sipDomain",
+        mac_address AS "macAddress",
+        adapter_type AS "adapterType"
+      FROM devices
+      WHERE LOWER(REPLACE(mac_address, ':', '')) = ${mac}
+      LIMIT 1
+    `;
+
+    const device = devices[0];
 
     if (!device) {
       console.log(`⚠️ MAC provisioning: No device found for MAC ${formattedMac}`);
@@ -113,7 +191,20 @@ export async function GET(
 
     // Generate Grandstream config directly
     if (deviceType === 'grandstream') {
-      const config = generateGrandstreamConfig(device);
+      const contacts: ProvisionContact[] = await prisma.contact.findMany({
+        where: {
+          OR: [{ deviceId: device.id }, { userId: device.userId }],
+          quickDialSlot: { not: null },
+        },
+        orderBy: { quickDialSlot: 'asc' },
+        select: {
+          quickDialSlot: true,
+          phoneNumber: true,
+          sipAddress: true,
+        },
+      });
+
+      const config = generateGrandstreamConfig(device, contacts);
       return new NextResponse(config, {
         headers: {
           'Content-Type': 'text/xml',
@@ -136,8 +227,9 @@ export async function GET(
         'Content-Type': configResponse.headers.get('Content-Type') || 'text/xml',
       },
     });
-  } catch (error: any) {
-    console.error('❌ MAC provisioning error:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ MAC provisioning error:', message);
     return NextResponse.json(
       { error: 'Provisioning failed' },
       { status: 500 }

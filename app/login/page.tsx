@@ -20,9 +20,9 @@ export default function LoginPage() {
 
   const redirectAfterAuth = (userEmail: string) => {
     if (ADMIN_EMAILS.includes(userEmail.toLowerCase())) {
-      router.push('/admin');
+      router.push('/portal-select');
     } else {
-      router.push('/');
+      router.push('/dashboard');
     }
   };
 

@@ -1,0 +1,6 @@
+name = "ringring-provision-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Workers.dev subdomain will be: ringring-provision-proxy.<your-subdomain>.workers.dev
+# HT801 Config Server Path: ringring-provision-proxy.<your-subdomain>.workers.dev/

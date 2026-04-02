@@ -7,69 +7,164 @@ datasource db {
 }
 
 model User {
-  id               String   @id @default(uuid())
-  email            String   @unique
-  plan             String   @default("free")
-  twilioNumber     String?  @map("twilio_number")
-  twilioNumberSid  String?  @map("twilio_number_sid")
-  stripeCustomerId String?  @map("stripe_customer_id")
-  stripeSubId      String?  @map("stripe_sub_id")
-  areaCode         String?  @map("area_code")
-  createdAt        DateTime @default(now()) @map("created_at")
+  id                     String   @id(map: "User_pkey") @default(uuid())
+  email                  String   @unique(map: "User_email_key")
+  plan                   String   @default("free")
+  twilioNumber           String?  @map("twilio_number")
+  twilioNumberSid        String?  @map("twilio_number_sid")
+  stripeCustomerId       String?  @map("stripe_customer_id")
+  stripeSubId            String?  @map("stripe_sub_id")
+  areaCode               String?  @map("area_code")
+  createdAt              DateTime @default(now()) @map("created_at")
+  stripe_subscription_id String?
 
   @@map("users")
 }
 
 model Device {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  name        String
-  phoneNumber String?  @map("phone_number")
-  isOnline    Boolean  @default(true) @map("status")
-  sipUsername String?  @unique @map("sip_username")
-  sipPassword String?  @map("sip_password")
-  sipDomain   String?  @map("sip_domain")
-  adapterType String?  @map("adapter_type")
-  adapterIp   String?  @map("adapter_ip")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id                 String    @id(map: "Device_pkey") @default(dbgenerated("gen_random_uuid()"))
+  userId             String    @map("user_id")
+  name               String
+  phoneNumber        String?   @map("phone_number")
+  isOnline           Boolean   @default(true) @map("status")
+  sipUsername        String?   @unique(map: "Device_sipUsername_key") @map("sip_username")
+  sipPassword        String?   @map("sip_password")
+  sipDomain          String?   @map("sip_domain")
+  macAddress         String?   @unique(map: "Device_macAddress_key") @map("mac_address") @db.VarChar(17)
+  adapterType        String?   @map("adapter_type")
+  adapterIp          String?   @map("adapter_ip")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  quietHoursEnabled  Boolean?  @default(false) @map("quiet_hours_enabled")
+  quietHoursStart    String?   @map("quiet_hours_start")
+  quietHoursEnd      String?   @map("quiet_hours_end")
+  usageCapEnabled    Boolean?  @default(false) @map("usage_cap_enabled")
+  usageCapMinutes    Int?      @map("usage_cap_minutes")
+  lastProvisionedAt  DateTime? @map("last_provisioned_at") @db.Timestamp(6)
+  provisioningStatus String?   @default("pending") @map("provisioning_status") @db.VarChar(50)
+  configVersion      String?   @map("config_version") @db.VarChar(20)
+  lastSeenIp         String?   @map("last_seen_ip") @db.VarChar(45)
 
   @@map("devices")
 }
 
+model ProvisioningLog {
+  id            String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  deviceId      String   @map("device_id")
+  timestamp     DateTime @default(now()) @db.Timestamp(6)
+  status        String   @db.VarChar(20)
+  configVersion String?  @map("config_version") @db.VarChar(20)
+  ipAddress     String?  @map("ip_address") @db.VarChar(45)
+  userAgent     String?  @map("user_agent")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([deviceId], map: "idx_provisioning_logs_device_id")
+  @@index([status], map: "idx_provisioning_logs_status")
+  @@map("provisioning_logs")
+}
+
+model DeviceRegistration {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  deviceId     String    @map("device_id")
+  registeredAt DateTime  @default(now()) @map("registered_at") @db.Timestamp(6)
+  expiresAt    DateTime? @map("expires_at") @db.Timestamp(6)
+  ipAddress    String?   @map("ip_address") @db.VarChar(45)
+  userAgent    String?   @map("user_agent")
+  status       String    @db.VarChar(20)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([deviceId], map: "idx_device_registrations_device_id")
+  @@index([status], map: "idx_device_registrations_status")
+  @@map("device_registrations")
+}
+
 model SipCredential {
-  id          String   @id @default(uuid())
+  id          String   @id(map: "SipCredential_pkey") @default(uuid())
   userId      String
-  deviceId    String   @unique
-  twilioSid   String   @unique
-  sipUsername String   @unique
+  deviceId    String   @unique(map: "SipCredential_deviceId_key")
+  twilioSid   String   @unique(map: "SipCredential_twilioSid_key")
+  sipUsername String   @unique(map: "SipCredential_sipUsername_key")
   sipPassword String
   createdAt   DateTime @default(now())
 
   @@map("sip_credentials")
 }
 
-model Contact {
-  id            String   @id @default(uuid())
-  userId        String   @map("user_id")
-  deviceId      String?  @map("device_id")
-  name          String
-  phoneNumber   String   @map("phone_number")
-  quickDialSlot Int?     @map("quick_dial_slot")
-  sipAddress    String?  @map("sip_address")
-  createdAt     DateTime @default(now()) @map("created_at")
+model FriendInvite {
+  id               String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  senderUserId     String    @map("sender_user_id")
+  inviteToken      String    @unique @map("invite_token")
+  status           String    @default("pending")
+  expiresAt        DateTime  @map("expires_at") @db.Timestamp(6)
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  acceptedAt       DateTime? @map("accepted_at") @db.Timestamp(6)
+  acceptedByUserId String?   @map("accepted_by_user_id")
 
+  @@index([senderUserId], map: "idx_friend_invites_sender")
+  @@index([status], map: "idx_friend_invites_status")
+  @@index([inviteToken], map: "idx_friend_invites_token")
+  @@map("friend_invites")
+}
+
+model Friendship {
+  id                  String                   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userAId             String                   @map("user_a_id")
+  userBId             String                   @map("user_b_id")
+  createdFromInviteId String?                  @map("created_from_invite_id")
+  createdAt           DateTime?                @default(now()) @map("created_at") @db.Timestamp(6)
+  contacts            Contact[]
+  devicePermissions   FriendDevicePermission[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId], map: "idx_friendships_user_a")
+  @@index([userBId], map: "idx_friendships_user_b")
+  @@map("friendships")
+}
+
+model FriendDevicePermission {
+  id           String     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  friendshipId String     @map("friendship_id")
+  deviceId     String     @map("device_id")
+  createdAt    DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
+  friendship   Friendship @relation(fields: [friendshipId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([friendshipId, deviceId])
+  @@index([deviceId], map: "idx_friend_device_permissions_device")
+  @@index([friendshipId], map: "idx_friend_device_permissions_friendship")
+  @@map("friend_device_permissions")
+}
+
+model Contact {
+  id             String      @id(map: "Contact_pkey") @default(dbgenerated("gen_random_uuid()"))
+  userId         String      @map("user_id")
+  name           String
+  phoneNumber    String?     @map("phone_number")
+  quickDialSlot  Int?        @map("quick_dial_slot")
+  sipAddress     String?     @map("sip_address")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  deviceId       String?     @map("device_id")
+  contactType    String?     @default("phone_number") @map("contact_type")
+  friendshipId   String?     @map("friendship_id")
+  friendDeviceId String?     @map("friend_device_id")
+  sipUsername    String?     @map("sip_username")
+  friendship     Friendship? @relation(fields: [friendshipId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([deviceId], map: "idx_contacts_device")
+  @@index([friendshipId], map: "idx_contacts_friendship")
+  @@index([sipUsername], map: "idx_contacts_sip_username")
+  @@index([userId], map: "idx_contacts_user")
   @@map("contacts")
 }
 
 model CallLog {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  fromSip   String   @map("from_sip")
-  toAddress String   @map("to_address")
-  callType  String   @map("call_type")
+  id        String   @id(map: "CallLog_pkey") @default(uuid())
+  userId    String
+  fromSip   String
+  toAddress String
+  callType  String
   duration  Int?
   status    String
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now())
 
   @@map("call_logs")
 }

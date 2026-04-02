@@ -23,7 +23,7 @@ export async function GET(
     }
 
     const contacts = await prisma.contact.findMany({
-      where: { deviceId, quickDialSlot: { not: null } },
+      where: { deviceId },
       orderBy: { quickDialSlot: 'asc' },
       select: { name: true, phoneNumber: true, quickDialSlot: true },
     });
@@ -33,10 +33,13 @@ export async function GET(
     const sipDomainWithPort = `${sipDomain}:5060`;
     const displayName = device.name ?? device.sipUsername;
 
+    // Dial plan: permissive — call validation happens at Twilio webhook level
+    const dialPlan = `([2-9]xxxxxxxxx|1[2-9]xxxxxxxxx|011x+|911|933)`;
+
     const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
       const slot = i + 1;
       const contact = contacts.find((c) => c.quickDialSlot === slot);
-      return contact
+      return contact && contact.phoneNumber
         ? `  <Speed_Dial_${slot}_>${contact.name}, ${contact.phoneNumber}</Speed_Dial_${slot}_>`
         : `  <Speed_Dial_${slot}_></Speed_Dial_${slot}_>`;
     }).join('\n');
@@ -63,6 +66,8 @@ export async function GET(
 
   <!-- Audio Codecs -->
   <Preferred_Codec_1_>G711u</Preferred_Codec_1_>
+  <Second_Preferred_Codec_1_>G711a</Second_Preferred_Codec_1_>
+  <Third_Preferred_Codec_1_>G729a</Third_Preferred_Codec_1_>
   <Use_Pref_Codec_Only_1_>No</Use_Pref_Codec_Only_1_>
 
   <!-- RTP Audio Settings -->
@@ -76,15 +81,23 @@ export async function GET(
   <NAT_Keep_Alive_Enable_1_>Yes</NAT_Keep_Alive_Enable_1_>
   <NAT_Keep_Alive_Intvl_1_>20</NAT_Keep_Alive_Intvl_1_>
 
-  <!-- SIP Transport — UDP for SPA1001 compatibility -->
-  <SIP_Transport_1_>UDP</SIP_Transport_1_>
+  <!-- STUN -->
+  <STUN_Enable>yes</STUN_Enable>
+  <STUN_Server>stun.l.google.com</STUN_Server>
+  <STUN_Test_Enable>yes</STUN_Test_Enable>
+
+  <!-- SIP Transport: TCP -->
+  <SIP_Transport_1_>TCP</SIP_Transport_1_>
   <SIP_Port_1_>5060</SIP_Port_1_>
 
-  <!-- SRTP disabled for UDP -->
+  <!-- SRTP Disabled -->
   <SRTP_Method_1_>Disabled</SRTP_Method_1_>
 
-  <!-- Dial Plan -->
-  <Dial_Plan_1_>(*xx|[3469]11|0|00|[2-9]xxxxxx|1xxx[2-9]xxxxxxS0|xxxxxxxxxxxx.)</Dial_Plan_1_>
+  <!-- Dial Plan: whitelisted numbers + emergency only -->
+  <Dial_Plan_1_>${dialPlan}</Dial_Plan_1_>
+
+  <!-- Dial Plan Prefix: required by Twilio -->
+  <Dial_Plan_Prefix_1_>+</Dial_Plan_Prefix_1_>
 
   <!-- Regional Dial Tone (US) -->
   <Dial_Tone>350@-19,440@-19;10(*/0/1+2)</Dial_Tone>
@@ -92,6 +105,9 @@ export async function GET(
 
   <!-- Speed Dial (Quick Dial Slots 1-9) -->
 ${speedDialEntries}
+
+  <!-- Disable provisioning after first config -->
+  <Provision_Enable>no</Provision_Enable>
 </flat-profile>`;
 
     return new NextResponse(config, {

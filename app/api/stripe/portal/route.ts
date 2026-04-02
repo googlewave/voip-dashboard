@@ -17,7 +17,7 @@ export async function POST() {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: dbUser.stripeCustomerId,
-    return_url: `${process.env.NEXT_PUBLIC_APP_URL}billing`,
+    return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://voip-dashboard-sigma.vercel.app'}/dashboard`,
   });
 
   return NextResponse.json({ url: session.url });

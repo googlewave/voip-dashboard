@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, name, adapterType } = await req.json();
+    const { userId, name, adapterType, macAddress } = await req.json();
 
     if (!userId || !name) {
       return NextResponse.json(
@@ -12,11 +12,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normalize MAC address to uppercase colon-separated format
+    let normalizedMac: string | undefined;
+    if (macAddress && macAddress.trim()) {
+      const hex = macAddress.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
+      if (hex.length === 12) {
+        normalizedMac = hex.match(/.{2}/g)!.join(':');
+      }
+    }
+
     const device = await prisma.device.create({
       data: {
         userId,
         name,
         adapterType,
+        macAddress: normalizedMac,
         isOnline: false,
       },
       select: {
@@ -24,6 +34,7 @@ export async function POST(req: NextRequest) {
         userId: true,
         name: true,
         sipUsername: true,
+        macAddress: true,
         adapterType: true,
         adapterIp: true,
       },

@@ -27,18 +27,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
   const sipDomain = device.sipDomain.replace(/:(\d+)$/, '');
   const displayName = device.name ?? device.sipUsername;
 
-  // Outbound dial plan: approved numbers + emergency only
-  const approvedNumbers = contacts.map((c) => c.phoneNumber.replace(/\D/g, ''));
-  const dialPlan = approvedNumbers.length > 0
-    ? `{ 911 | 933 | ${approvedNumbers.join(' | ')} }`
-    : `{ 911 | 933 }`;
+  // Dial plan: permissive — call validation happens at Twilio webhook level
+  // { x+ } allows any digit sequence; Twilio voice webhook enforces whitelist
+  const dialPlan = `{ x+ }`;
 
   // Speed dial slots 1–9
   const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
     const slot = i + 1;
     const contact = contacts.find((c) => c.quickDialSlot === slot);
     const pCode = 300 + slot;
-    return contact
+    return contact && contact.phoneNumber
       ? `    <P${pCode}>${contact.phoneNumber.replace(/\D/g, '')}</P${pCode}>`
       : `    <P${pCode}></P${pCode}>`;
   }).join('\n');
@@ -61,10 +59,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     <P271>1</P271>
     <P32>60</P32>
 
-    <!-- NAT -->
-    <P52>0</P52>
+    <!-- NAT Traversal: Keep-Alive -->
+    <P52>1</P52>
     <P1364>keepalive</P1364>
     <P76>20</P76>
+
+    <!-- STUN -->
+    <P47S>stun.l.google.com</P47S>
+    <P48S>19302</P48S>
+    <P51>1</P51>
 
     <!-- Dial Plan: approved contacts + emergency only -->
     <P278>${dialPlan}</P278>
@@ -84,8 +87,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     <P196>10000</P196>
     <P197>20000</P197>
 
-    <!-- SIP Transport: UDP -->
-    <P1361>0</P1361>
+    <!-- SIP Transport: TCP (more reliable through NAT/firewalls) -->
+    <P1361>1</P1361>
 
     <!-- SRTP: Disabled -->
     <P183>0</P183>
