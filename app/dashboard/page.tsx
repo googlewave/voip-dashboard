@@ -893,7 +893,7 @@ function DashboardInner() {
               </div>
             )}
 
-            {selectedDevice ? (
+            {selectedDevice && (
               <>
                 {/* Device Selector (switcher when already selected) */}
                 {devices.length > 1 && (
@@ -925,12 +925,6 @@ function DashboardInner() {
                   />
                 </div>
               </>
-            ) : (
-              <div className="bg-white rounded-3xl p-16 border-2 border-stone-100 text-center">
-                <div className="text-6xl mb-4">📞</div>
-                <p className="text-xl font-black text-stone-900 mb-2">No device selected</p>
-                <p className="text-stone-500">Go to Devices tab and click Manage on a device</p>
-              </div>
             )}
 
           </div>
