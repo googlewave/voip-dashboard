@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
-import { QRCodeSVG } from 'qrcode.react';
 import FriendsTab from './FriendsTab';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
 
@@ -73,8 +72,6 @@ function DashboardInner() {
   // Device form
   const [newDeviceName, setNewDeviceName] = useState('');
   const [addingDevice, setAddingDevice] = useState(false);
-  const [showProvisionModal, setShowProvisionModal] = useState(false);
-  const [provisionDeviceId, setProvisionDeviceId] = useState<string | null>(null);
 
   const [friendDevices, setFriendDevices] = useState<FriendDevice[]>([]);
 
@@ -198,8 +195,6 @@ function DashboardInner() {
       .single();
     if (!error && data) {
       setNewDeviceName('');
-      setProvisionDeviceId(data.id);
-      setShowProvisionModal(true);
       await fetchData(user.id);
     }
     setAddingDevice(false);
@@ -381,12 +376,6 @@ function DashboardInner() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => { setProvisionDeviceId(device.id); setShowProvisionModal(true); }}
-                            className="px-4 py-2 bg-blue-100 text-blue-700 font-bold rounded-xl hover:bg-blue-200 transition text-sm"
-                          >
-                            Setup
-                          </button>
                           <button
                             onClick={() => {
                               applySelectedDevice(device);
@@ -721,74 +710,6 @@ function DashboardInner() {
           </div>
         )}
 
-        {/* QR Code Provisioning Modal */}
-        {showProvisionModal && provisionDeviceId && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowProvisionModal(false)}>
-            <div className="bg-white rounded-3xl p-8 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-black text-stone-900">Set Up Your Device</h2>
-                <button
-                  onClick={() => setShowProvisionModal(false)}
-                  className="text-stone-400 hover:text-stone-600 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* QR Code */}
-                <div className="bg-stone-50 rounded-2xl p-6 text-center">
-                  <p className="text-sm font-bold text-stone-600 mb-4">Scan with your device</p>
-                  <div className="bg-white p-4 rounded-xl inline-block">
-                    <QRCodeSVG
-                      value={`https://voip-dashboard-sigma.vercel.app/api/provision/auto/${provisionDeviceId}`}
-                      size={200}
-                      level="M"
-                    />
-                  </div>
-                </div>
-
-                {/* Manual URL */}
-                <div>
-                  <p className="text-sm font-bold text-stone-700 mb-2">Or enter this URL in your device:</p>
-                  <div className="bg-stone-50 rounded-xl p-4 border-2 border-stone-200">
-                    <code className="text-sm text-stone-700 break-all">
-                      https://voip-dashboard-sigma.vercel.app/api/provision/auto/{provisionDeviceId}
-                    </code>
-                  </div>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(`https://voip-dashboard-sigma.vercel.app/api/provision/auto/${provisionDeviceId}`);
-                    }}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-bold"
-                  >
-                    📋 Copy URL
-                  </button>
-                </div>
-
-                {/* Instructions */}
-                <div className="bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
-                  <p className="text-sm font-bold text-blue-900 mb-2">📱 Setup Instructions:</p>
-                  <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                    <li>Go to your device&apos;s web interface</li>
-                    <li>Find &quot;Provisioning&quot; or &quot;Auto Provision&quot; settings</li>
-                    <li>Enter the URL above or scan the QR code</li>
-                    <li>Save and reboot your device</li>
-                    <li>Your device will auto-configure!</li>
-                  </ol>
-                </div>
-
-                {/* Close Button */}
-                <button
-                  onClick={() => setShowProvisionModal(false)}
-                  className="w-full px-6 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
       </div>
     </div>

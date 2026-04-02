@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { QRCodeSVG } from 'qrcode.react';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
 
 type User = {
@@ -66,10 +65,7 @@ export default function AdminDashboard({
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
-  const [provisionDeviceId, setProvisionDeviceId] = useState<string | null>(null);
-  const [provisionDeviceType, setProvisionDeviceType] = useState<string>('linksys');
   const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [editDeviceForm, setEditDeviceForm] = useState({ name: '', macAddress: '', adapterType: '' });
@@ -236,6 +232,7 @@ export default function AdminDashboard({
     await refreshData();
     setLoading({ ...loading, [`sip_reset_${deviceId}`]: false });
   };
+
 
   const copyProvisionUrl = (deviceId: string, adapterType: string) => {
     const type = adapterType === 'grandstream' ? 'grandstream.cfg' : 'linksys.cfg';
@@ -660,16 +657,6 @@ export default function AdminDashboard({
                                       <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
                                         {device.sipUsername ? (
                                           <>
-                                            <button
-                                              onClick={() => {
-                                                setProvisionDeviceId(device.id);
-                                                setProvisionDeviceType(device.adapterType || 'linksys');
-                                                setShowProvisionModal(true);
-                                              }}
-                                              className="px-2.5 py-1.5 bg-green-100 text-green-800 font-bold rounded-lg hover:bg-green-200 transition text-xs"
-                                            >
-                                              QR Code
-                                            </button>
                                             <button
                                               onClick={() => copyProvisionUrl(device.id, device.adapterType || 'linksys')}
                                               className="px-2.5 py-1.5 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 transition text-xs"
