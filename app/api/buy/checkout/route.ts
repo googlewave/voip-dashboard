@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 import { sendOrderConfirmationEmail } from '@/lib/email';
+import { prisma } from '@/lib/prisma';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-02-25.clover',
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       areaCode,
       shippingAddress,
       e911Address,
+      couponCode,
     } = await req.json();
 
     // 1. Create Supabase user account
@@ -91,6 +93,26 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 3b. Resolve coupon → Stripe promotion code ID
+    let stripePromoCodeId: string | undefined;
+    if (couponCode && plan !== 'free') {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: couponCode.toUpperCase() },
+      });
+
+      // Validate coupon is still usable
+      const couponValid =
+        coupon &&
+        coupon.isActive &&
+        (!coupon.expiresAt || coupon.expiresAt > new Date()) &&
+        (coupon.maxRedemptions === null || coupon.timesRedeemed < coupon.maxRedemptions) &&
+        (coupon.appliesTo === 'both' || coupon.appliesTo === plan);
+
+      if (couponValid && coupon.stripePromoCodeId) {
+        stripePromoCodeId = coupon.stripePromoCodeId;
+      }
+    }
+
     // 4. Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -99,6 +121,7 @@ export async function POST(req: NextRequest) {
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/welcome?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/buy?canceled=true`,
       customer_email: email,
+      discounts: stripePromoCodeId ? [{ promotion_code: stripePromoCodeId }] : undefined,
       metadata: {
         userId,
         hardware,
@@ -108,11 +131,22 @@ export async function POST(req: NextRequest) {
         areaCode: areaCode || '',
         shippingAddress: shippingAddress ? JSON.stringify(shippingAddress) : '',
         e911Address: e911Address ? JSON.stringify(e911Address) : '',
+        couponCode: couponCode || '',
       },
       shipping_address_collection: delivery === 'shipping' ? {
         allowed_countries: ['US'],
       } : undefined,
     });
+
+    // Increment coupon redemption count after session is created successfully
+    if (couponCode && stripePromoCodeId) {
+      await prisma.coupon.update({
+        where: { code: couponCode.toUpperCase() },
+        data: { timesRedeemed: { increment: 1 } },
+      }).catch(() => {
+        // Non-critical — don't fail checkout if this update fails
+      });
+    }
 
     // Send order confirmation email for free plan (paid plans handled by webhook)
     if (plan === 'free') {

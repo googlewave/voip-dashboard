@@ -7,6 +7,16 @@ type HardwareOption = 'adapter' | 'kit' | null;
 type PlanOption = 'free' | 'monthly' | 'annual' | null;
 type DeliveryOption = 'pickup' | 'shipping' | null;
 
+type CouponResult = {
+  valid: boolean;
+  code: string;
+  percentOff: number;
+  duration: string;
+  durationInMonths: number | null;
+  appliesTo: string;
+  description: string | null;
+};
+
 export default function BuyPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -14,6 +24,12 @@ export default function BuyPage() {
   const [plan, setPlan] = useState<PlanOption>(null);
   const [delivery, setDelivery] = useState<DeliveryOption>(null);
   const [loading, setLoading] = useState(false);
+
+  // Coupon
+  const [couponInput, setCouponInput] = useState('');
+  const [couponApplied, setCouponApplied] = useState<CouponResult | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
 
   // Form data
   const [email, setEmail] = useState('');
@@ -35,6 +51,35 @@ export default function BuyPage() {
     zip: '',
   });
   const [useShippingForE911, setUseShippingForE911] = useState(true);
+
+  const applyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError('');
+    setCouponApplied(null);
+    try {
+      const res = await fetch('/api/admin/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), plan: plan || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok && data.valid) {
+        setCouponApplied(data);
+      } else {
+        setCouponError(data.error || 'Invalid coupon code');
+      }
+    } catch {
+      setCouponError('Could not validate coupon. Please try again.');
+    }
+    setCouponLoading(false);
+  };
+
+  const removeCoupon = () => {
+    setCouponApplied(null);
+    setCouponInput('');
+    setCouponError('');
+  };
 
   const canProceed = () => {
     if (step === 1) return hardware !== null;
@@ -66,6 +111,7 @@ export default function BuyPage() {
           areaCode: plan !== 'free' ? areaCode : null,
           shippingAddress: delivery === 'shipping' ? shippingAddress : null,
           e911Address: plan !== 'free' ? (useShippingForE911 ? shippingAddress : e911Address) : null,
+          couponCode: couponApplied ? couponApplied.code : null,
         }),
       });
       const data = await res.json();
@@ -83,7 +129,12 @@ export default function BuyPage() {
 
   const hardwarePrice = hardware === 'adapter' ? 39 : hardware === 'kit' ? 69 : 0;
   const planPrice = plan === 'monthly' ? 8.95 : plan === 'annual' ? 85.80 : 0;
-  const total = hardwarePrice + (plan === 'free' ? 0 : planPrice);
+
+  // Coupon discount applies only to subscription portion (not hardware)
+  const couponDiscount = couponApplied && plan !== 'free'
+    ? (planPrice * couponApplied.percentOff) / 100
+    : 0;
+  const total = hardwarePrice + (plan === 'free' ? 0 : planPrice) - couponDiscount;
 
   return (
     <div className="min-h-screen bg-[#FAF7F2] py-12 px-6">
@@ -398,6 +449,56 @@ export default function BuyPage() {
                 </div>
               )}
 
+              {/* Coupon Code */}
+              {plan !== 'free' && (
+                <div>
+                  <label className="block text-sm font-bold text-stone-900 mb-2">Coupon Code</label>
+                  {couponApplied ? (
+                    <div className="flex items-center justify-between bg-green-50 border-2 border-green-200 rounded-xl px-4 py-3">
+                      <div>
+                        <span className="font-mono font-black text-green-800">{couponApplied.code}</span>
+                        <span className="ml-2 text-sm text-green-700">
+                          {couponApplied.percentOff}% off
+                          {couponApplied.duration === 'once' ? ' (first payment)' :
+                           couponApplied.duration === 'repeating' ? ` for ${couponApplied.durationInMonths} months` :
+                           ' forever'}
+                        </span>
+                        {couponApplied.description && (
+                          <p className="text-xs text-green-600 mt-0.5">{couponApplied.description}</p>
+                        )}
+                      </div>
+                      <button
+                        onClick={removeCoupon}
+                        className="text-green-600 hover:text-red-600 text-sm font-bold transition ml-3"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+                        onKeyDown={(e) => e.key === 'Enter' && applyCoupon()}
+                        className="flex-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-mono uppercase"
+                        placeholder="Enter code"
+                      />
+                      <button
+                        onClick={applyCoupon}
+                        disabled={couponLoading || !couponInput.trim()}
+                        className="px-5 py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50"
+                      >
+                        {couponLoading ? '…' : 'Apply'}
+                      </button>
+                    </div>
+                  )}
+                  {couponError && (
+                    <p className="text-red-600 text-sm mt-1.5 font-medium">{couponError}</p>
+                  )}
+                </div>
+              )}
+
               {/* Order Summary */}
               <div className="bg-stone-50 rounded-2xl p-6 border border-stone-200">
                 <div className="text-sm font-bold text-stone-900 mb-3">Order Summary</div>
@@ -412,6 +513,17 @@ export default function BuyPage() {
                         {plan === 'monthly' ? 'Monthly Plan' : 'Annual Plan (20% off)'}
                       </span>
                       <span className="font-bold text-stone-900">${planPrice.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {couponApplied && couponDiscount > 0 && (
+                    <div className="flex justify-between text-green-700">
+                      <span className="font-medium">
+                        Coupon discount ({couponApplied.code})
+                        {couponApplied.duration === 'once' ? ' · first payment' :
+                         couponApplied.duration === 'repeating' ? ` · ${couponApplied.durationInMonths} months` :
+                         ' · forever'}
+                      </span>
+                      <span className="font-bold">−${couponDiscount.toFixed(2)}</span>
                     </div>
                   )}
                   <div className="border-t border-stone-200 pt-2 mt-2 flex justify-between">

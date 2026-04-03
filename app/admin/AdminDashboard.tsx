@@ -46,7 +46,7 @@ type Contact = {
   sip_username?: string | null;
 };
 
-type Tab = 'users' | 'billing' | 'system';
+type Tab = 'users' | 'billing' | 'coupons' | 'system';
 
 export default function AdminDashboard({
   initialUsers,
@@ -97,6 +97,82 @@ export default function AdminDashboard({
 
   // System
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
+  // Coupons
+  type CouponRow = {
+    id: string;
+    code: string;
+    description: string | null;
+    percentOff: number;
+    duration: string;
+    durationInMonths: number | null;
+    appliesTo: string;
+    maxRedemptions: number | null;
+    timesRedeemed: number;
+    expiresAt: string | null;
+    isActive: boolean;
+  };
+  const [coupons, setCoupons] = useState<CouponRow[]>([]);
+  const [couponsLoaded, setCouponsLoaded] = useState(false);
+  const [showCreateCoupon, setShowCreateCoupon] = useState(false);
+  const [newCoupon, setNewCoupon] = useState({
+    code: '',
+    description: '',
+    percentOff: 20,
+    duration: 'once',
+    durationInMonths: 3,
+    appliesTo: 'both',
+    maxRedemptions: '',
+    expiresAt: '',
+  });
+  const [creatingCoupon, setCreatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState('');
+
+  const loadCoupons = async () => {
+    const res = await fetch('/api/admin/coupons');
+    const data = await res.json();
+    if (res.ok) {
+      setCoupons(data.coupons);
+      setCouponsLoaded(true);
+    }
+  };
+
+  const createCoupon = async () => {
+    setCreatingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch('/api/admin/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newCoupon,
+          percentOff: Number(newCoupon.percentOff),
+          durationInMonths: newCoupon.duration === 'repeating' ? Number(newCoupon.durationInMonths) : undefined,
+          maxRedemptions: newCoupon.maxRedemptions ? Number(newCoupon.maxRedemptions) : undefined,
+          expiresAt: newCoupon.expiresAt || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowCreateCoupon(false);
+        setNewCoupon({ code: '', description: '', percentOff: 20, duration: 'once', durationInMonths: 3, appliesTo: 'both', maxRedemptions: '', expiresAt: '' });
+        await loadCoupons();
+      } else {
+        setCouponError(data.error || 'Failed to create coupon');
+      }
+    } catch (err: unknown) {
+      setCouponError(err instanceof Error ? err.message : 'Failed to create coupon');
+    }
+    setCreatingCoupon(false);
+  };
+
+  const deactivateCoupon = async (couponId: string) => {
+    if (!confirm('Deactivate this coupon? It can no longer be redeemed.')) return;
+    setLoading((prev) => ({ ...prev, [`deactivate_${couponId}`]: true }));
+    await fetch(`/api/admin/coupons/${couponId}`, { method: 'DELETE' });
+    await loadCoupons();
+    setLoading((prev) => ({ ...prev, [`deactivate_${couponId}`]: false }));
+  };
 
   // Users & Devices (combined view)
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
@@ -389,10 +465,10 @@ export default function AdminDashboard({
               ⚡ Admin Portal
             </button>
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-orange-100">
-              {(['users', 'billing', 'system'] as Tab[]).map((tab) => (
+              {(['users', 'billing', 'coupons', 'system'] as Tab[]).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => { setActiveTab(tab); if (tab === 'coupons' && !couponsLoaded) void loadCoupons(); }}
                   className={`capitalize transition ${activeTab === tab ? 'text-white font-bold' : 'hover:text-white'}`}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -1165,6 +1241,208 @@ export default function AdminDashboard({
             </div>
           );
         })()}
+
+        {/* Coupons Tab */}
+        {activeTab === 'coupons' && (
+          <div className="space-y-6">
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-stone-900">Coupon Codes</h2>
+                <p className="text-stone-500 text-sm">Create and manage discount codes for the Ring Ring shop</p>
+              </div>
+              <button
+                onClick={() => { setShowCreateCoupon(true); setCouponError(''); }}
+                className="px-5 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition"
+              >
+                + Create Coupon
+              </button>
+            </div>
+
+            {/* Coupon list */}
+            {coupons.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 border-2 border-stone-100 text-center">
+                <div className="text-4xl mb-3">🎟️</div>
+                <p className="text-stone-500 font-medium">No coupon codes yet. Create one to share with friends & family.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {coupons.map((c) => (
+                  <div key={c.id} className={`bg-white rounded-2xl p-5 border-2 ${c.isActive ? 'border-stone-100' : 'border-stone-200 opacity-60'} flex items-center justify-between gap-4`}>
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="font-mono text-lg font-black text-[#C4531A] bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-200 shrink-0">
+                        {c.code}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-stone-900 flex items-center gap-2 flex-wrap">
+                          <span>{c.percentOff}% off</span>
+                          <span className="text-stone-400 font-normal">·</span>
+                          <span className="text-stone-600 font-normal text-sm capitalize">
+                            {c.duration === 'once' ? 'one-time' : c.duration === 'repeating' ? `${c.durationInMonths} months` : 'forever'}
+                          </span>
+                          <span className="text-stone-400 font-normal">·</span>
+                          <span className="text-stone-600 font-normal text-sm">
+                            {c.appliesTo === 'both' ? 'monthly & annual' : c.appliesTo === 'monthly' ? 'monthly only' : 'annual only'}
+                          </span>
+                        </div>
+                        {c.description && <p className="text-xs text-stone-500 mt-0.5 truncate">{c.description}</p>}
+                        <div className="flex items-center gap-3 mt-1 text-xs text-stone-400">
+                          <span>{c.timesRedeemed}{c.maxRedemptions ? `/${c.maxRedemptions}` : ''} redeemed</span>
+                          {c.expiresAt && <span>expires {new Date(c.expiresAt).toLocaleDateString()}</span>}
+                          {!c.isActive && <span className="text-red-500 font-bold">INACTIVE</span>}
+                        </div>
+                      </div>
+                    </div>
+                    {c.isActive && (
+                      <button
+                        onClick={() => deactivateCoupon(c.id)}
+                        disabled={!!loading[`deactivate_${c.id}`]}
+                        className="shrink-0 px-4 py-2 bg-stone-100 text-stone-600 text-sm font-bold rounded-lg hover:bg-red-50 hover:text-red-700 transition disabled:opacity-50"
+                      >
+                        {loading[`deactivate_${c.id}`] ? 'Deactivating…' : 'Deactivate'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Create Coupon Modal */}
+            {showCreateCoupon && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowCreateCoupon(false)}>
+                <div className="bg-white rounded-3xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-xl font-black text-stone-900">Create Coupon Code</h2>
+                    <button onClick={() => setShowCreateCoupon(false)} className="text-stone-400 hover:text-stone-600 text-2xl">×</button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-bold text-stone-700 mb-1">Code <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={newCoupon.code}
+                        onChange={(e) => setNewCoupon((p) => ({ ...p, code: e.target.value.toUpperCase().replace(/\s/g, '') }))}
+                        className="w-full font-mono bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A] uppercase"
+                        placeholder="e.g. FAMILY20"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-stone-700 mb-1">Description (internal note)</label>
+                      <input
+                        type="text"
+                        value={newCoupon.description}
+                        onChange={(e) => setNewCoupon((p) => ({ ...p, description: e.target.value }))}
+                        className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                        placeholder="e.g. For close friends & family"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-stone-700 mb-1">% Off <span className="text-red-500">*</span></label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={newCoupon.percentOff}
+                          onChange={(e) => setNewCoupon((p) => ({ ...p, percentOff: Number(e.target.value) }))}
+                          className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-stone-700 mb-1">Duration <span className="text-red-500">*</span></label>
+                        <select
+                          value={newCoupon.duration}
+                          onChange={(e) => setNewCoupon((p) => ({ ...p, duration: e.target.value }))}
+                          className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                        >
+                          <option value="once">One-time (first payment)</option>
+                          <option value="repeating">Repeating (X months)</option>
+                          <option value="forever">Forever</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {newCoupon.duration === 'repeating' && (
+                      <div>
+                        <label className="block text-sm font-bold text-stone-700 mb-1">Duration (months) <span className="text-red-500">*</span></label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={newCoupon.durationInMonths}
+                          onChange={(e) => setNewCoupon((p) => ({ ...p, durationInMonths: Number(e.target.value) }))}
+                          className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                          placeholder="e.g. 3"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-bold text-stone-700 mb-1">Applies To</label>
+                      <select
+                        value={newCoupon.appliesTo}
+                        onChange={(e) => setNewCoupon((p) => ({ ...p, appliesTo: e.target.value }))}
+                        className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                      >
+                        <option value="both">Monthly &amp; Annual plans</option>
+                        <option value="monthly">Monthly plan only</option>
+                        <option value="annual">Annual plan only</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-stone-700 mb-1">Max Redemptions</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={newCoupon.maxRedemptions}
+                          onChange={(e) => setNewCoupon((p) => ({ ...p, maxRedemptions: e.target.value }))}
+                          className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                          placeholder="Unlimited"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-stone-700 mb-1">Expires On</label>
+                        <input
+                          type="date"
+                          value={newCoupon.expiresAt}
+                          onChange={(e) => setNewCoupon((p) => ({ ...p, expiresAt: e.target.value }))}
+                          className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
+                        />
+                      </div>
+                    </div>
+
+                    {couponError && (
+                      <div className="bg-red-50 text-red-700 text-sm font-medium px-4 py-3 rounded-xl border border-red-200">
+                        {couponError}
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={createCoupon}
+                        disabled={creatingCoupon || !newCoupon.code.trim() || !newCoupon.percentOff}
+                        className="flex-1 px-4 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
+                      >
+                        {creatingCoupon ? 'Creating…' : 'Create Coupon'}
+                      </button>
+                      <button
+                        onClick={() => setShowCreateCoupon(false)}
+                        className="flex-1 px-4 py-3 bg-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-300 transition"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
 
         {/* System Tab */}
         {activeTab === 'system' && (
