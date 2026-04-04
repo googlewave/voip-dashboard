@@ -125,15 +125,19 @@ export async function GET(
     console.log(`✅ Auto-provisioned ${deviceType} for device ${deviceId} in ${duration}ms`);
 
     // 8. Return config with appropriate content type
-    const contentType = deviceType === 'grandstream' ? 'text/xml' : 'text/xml';
-    const filename = deviceType === 'grandstream' ? 'cfg.xml' : 'linksys.cfg';
+    // Grandstream: text/xml  |  Linksys SPA: text/plain (device rejects xml content-type)
+    const contentType = deviceType === 'grandstream' ? 'text/xml' : 'text/plain';
 
-    return new NextResponse(config, {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${filename}"`,
-      },
-    });
+    const headers: Record<string, string> = {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-cache, no-store',
+    };
+    // Grandstream expects a filename hint; Linksys SPA rejects Content-Disposition
+    if (deviceType === 'grandstream') {
+      headers['Content-Disposition'] = 'attachment; filename="cfg.xml"';
+    }
+
+    return new NextResponse(config, { headers });
 
   } catch (error: any) {
     console.error('Auto-provision error:', error);
@@ -370,8 +374,8 @@ function generateLinksysConfig(
   <STUN_Server>stun.l.google.com</STUN_Server>
   <STUN_Test_Enable>yes</STUN_Test_Enable>
 
-  <!-- SIP Transport: TCP -->
-  <SIP_Transport_1_>TCP</SIP_Transport_1_>
+  <!-- SIP Transport: UDP (more compatible with SPA2102 firmware + Twilio) -->
+  <SIP_Transport_1_>UDP</SIP_Transport_1_>
   <SIP_Port_1_>5060</SIP_Port_1_>
 
   <!-- SRTP Disabled -->

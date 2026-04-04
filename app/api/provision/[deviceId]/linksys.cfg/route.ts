@@ -86,8 +86,8 @@ export async function GET(
   <STUN_Server>stun.l.google.com</STUN_Server>
   <STUN_Test_Enable>yes</STUN_Test_Enable>
 
-  <!-- SIP Transport: TCP -->
-  <SIP_Transport_1_>TCP</SIP_Transport_1_>
+  <!-- SIP Transport: UDP (more compatible with SPA2102 firmware + Twilio) -->
+  <SIP_Transport_1_>UDP</SIP_Transport_1_>
   <SIP_Port_1_>5060</SIP_Port_1_>
 
   <!-- SRTP Disabled -->
@@ -112,8 +112,8 @@ ${speedDialEntries}
 
     return new NextResponse(config, {
       headers: {
-        'Content-Type': 'text/xml',
-        'Content-Disposition': 'attachment; filename="linksys.cfg"',
+        'Content-Type': 'text/plain',
+        'Cache-Control': 'no-cache, no-store',
       },
     });
   } catch (error: any) {
