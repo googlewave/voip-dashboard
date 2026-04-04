@@ -68,10 +68,55 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Save to Prisma
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { twilioNumber: purchased.phoneNumber },
+    // 4. Save to Prisma and default the new line onto a device
+    const { user, assignedDevice } = await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          twilioNumber: purchased.phoneNumber,
+          twilioNumberSid: purchased.sid,
+        },
+      });
+
+      const existingAssignedDevice = await tx.device.findFirst({
+        where: {
+          userId,
+          phoneNumber: purchased.phoneNumber,
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true },
+      });
+
+      if (existingAssignedDevice) {
+        return { user: updatedUser, assignedDevice: existingAssignedDevice };
+      }
+
+      const deviceWithoutLine = await tx.device.findFirst({
+        where: {
+          userId,
+          phoneNumber: null,
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true, phoneNumber: true },
+      });
+
+      const deviceToAssign = deviceWithoutLine ?? await tx.device.findFirst({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, name: true, phoneNumber: true },
+      });
+
+      if (!deviceToAssign) {
+        return { user: updatedUser, assignedDevice: null };
+      }
+
+      const updatedDevice = await tx.device.update({
+        where: { id: deviceToAssign.id },
+        data: { phoneNumber: purchased.phoneNumber },
+        select: { id: true, name: true },
+      });
+
+      return { user: updatedUser, assignedDevice: updatedDevice };
     });
 
     // 5. Send email notification
@@ -88,6 +133,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       phoneNumber: purchased.phoneNumber,
+      assignedDevice,
     });
 
   } catch (err: any) {

@@ -98,6 +98,7 @@ export default function AdminDashboard({
   // System
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
   const [webhookFixResult, setWebhookFixResult] = useState<string | null>(null);
+  const [deviceLineFixResult, setDeviceLineFixResult] = useState<string | null>(null);
 
   // Coupons
   type CouponRow = {
@@ -373,6 +374,24 @@ export default function AdminDashboard({
     }
     setLoading((prev) => ({ ...prev, fix_webhooks: false }));
     setTimeout(() => setWebhookFixResult(null), 8000);
+  };
+
+  const fixDeviceLines = async () => {
+    setLoading((prev) => ({ ...prev, fix_device_lines: true }));
+    try {
+      const res = await fetch('/api/admin/fix-device-lines', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setDeviceLineFixResult(`✅ Checked ${data.total} user${data.total !== 1 ? 's' : ''} — fixed ${data.fixed} device line${data.fixed !== 1 ? 's' : ''}`);
+        await refreshData();
+      } else {
+        setDeviceLineFixResult(`❌ ${data.error}`);
+      }
+    } catch (err: unknown) {
+      setDeviceLineFixResult(`❌ ${err instanceof Error ? err.message : 'Failed'}`);
+    }
+    setLoading((prev) => ({ ...prev, fix_device_lines: false }));
+    setTimeout(() => setDeviceLineFixResult(null), 8000);
   };
 
   // Device Management
@@ -1502,6 +1521,23 @@ export default function AdminDashboard({
                   className="w-full px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition disabled:opacity-50"
                 >
                   {loading.cleanup_sip ? 'Cleaning...' : 'Run SIP Cleanup'}
+                </button>
+              </div>
+
+              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                <h3 className="text-lg font-black text-stone-900 mb-4">📞 Fix Device Lines</h3>
+                <p className="text-sm text-stone-500 mb-4">
+                  Assign each user&apos;s existing Twilio phone number to a device when the user has a blank device line. Safe to run repeatedly.
+                </p>
+                {deviceLineFixResult && (
+                  <p className="text-sm font-medium mb-4">{deviceLineFixResult}</p>
+                )}
+                <button
+                  onClick={fixDeviceLines}
+                  disabled={loading.fix_device_lines}
+                  className="w-full px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50"
+                >
+                  {loading.fix_device_lines ? 'Fixing...' : 'Fix Device Lines'}
                 </button>
               </div>
 
