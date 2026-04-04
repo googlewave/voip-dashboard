@@ -211,14 +211,7 @@ function generateConfig(
   
   const hasSipContacts = contacts.some((c) => c.contactType === 'ring_ring_friend' && c.sipUsername);
   
-  let dialPlan = '(911|933';
-  if (phoneNumbers.length > 0) {
-    dialPlan += `|${phoneNumbers.join('|')}`;
-  }
-  if (hasSipContacts) {
-    dialPlan += `|sip_*@${sipDomain}`;
-  }
-  dialPlan += ')';
+  let dialPlan = '([2-9]xxxxxxxxx|1[2-9]xxxxxxxxx|011x+|xxxx+|911|933)';;
 
   if (deviceType === 'grandstream') {
     return generateGrandstreamConfig(device, contacts, sipDomainWithPort, displayName, dialPlan, sipDomain);
@@ -397,7 +390,7 @@ function generateLinksysConfig(
   <!-- Speed Dial (Quick Dial Slots 1-9) -->
 ${speedDialEntries}
 
-  <!-- Disable provisioning after first config -->
-  <Provision_Enable>no</Provision_Enable>
+  <!-- Re-enable provisioning so the device can resync -->
+  <Provision_Enable>yes</Provision_Enable>
 </flat-profile>`;
 }

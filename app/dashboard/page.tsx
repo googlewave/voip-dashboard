@@ -26,6 +26,7 @@ interface Device {
   status: boolean;
   created_at: string;
   sip_username: string | null;
+  adapter_type: string | null;
   quiet_hours_enabled: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
@@ -88,11 +89,12 @@ type Invoice = {
   pdf: string | null;
 };
 
-function SetupGuidePanel({ deviceId }: { deviceId: string }) {
+function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterType?: string | null }) {
   const [copied, setCopied] = useState(false);
+  const typeParam = adapterType === 'linksys' ? '?type=linksys' : adapterType === 'grandstream' ? '?type=grandstream' : '';
   const url = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/provision/auto/${deviceId}`
-    : `/api/provision/auto/${deviceId}`;
+    ? `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
+    : `/api/provision/auto/${deviceId}${typeParam}`;
 
   const copy = () => {
     navigator.clipboard.writeText(url);
@@ -636,7 +638,7 @@ function DashboardInner() {
                         {/* Setup Guide (inline) */}
                         {showSetupGuide === device.id && device.sip_username && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
-                            <SetupGuidePanel deviceId={device.id} />
+                            <SetupGuidePanel deviceId={device.id} adapterType={device.adapter_type} />
                           </div>
                         )}
 

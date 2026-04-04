@@ -106,8 +106,8 @@ export async function GET(
   <!-- Speed Dial (Quick Dial Slots 1-9) -->
 ${speedDialEntries}
 
-  <!-- Disable provisioning after first config -->
-  <Provision_Enable>no</Provision_Enable>
+  <!-- Re-enable provisioning so the device can resync -->
+  <Provision_Enable>yes</Provision_Enable>
 </flat-profile>`;
 
     return new NextResponse(config, {
