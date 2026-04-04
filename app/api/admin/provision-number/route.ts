@@ -33,9 +33,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Purchase the number first (no E911 yet)
+    // 2. Purchase the number with voice webhook already set
+    const voiceWebhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/twilio/voice`;
     const purchased = await twilioClient.incomingPhoneNumbers.create({
       phoneNumber: available[0].phoneNumber,
+      voiceUrl: voiceWebhookUrl,
+      voiceMethod: 'POST',
     });
 
     // 3. Create E911 address and attach in two separate updates

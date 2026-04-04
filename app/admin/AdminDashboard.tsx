@@ -97,6 +97,7 @@ export default function AdminDashboard({
 
   // System
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+  const [webhookFixResult, setWebhookFixResult] = useState<string | null>(null);
 
   // Coupons
   type CouponRow = {
@@ -354,7 +355,24 @@ export default function AdminDashboard({
       setCleanupResult(`❌ ${message}`);
     }
     setLoading({ ...loading, cleanup_sip: false });
-    setTimeout(() => setCleanupResult(null), 5000);
+    setTimeout(() => setCleanupResult(null), 8000);
+  };
+
+  const fixWebhooks = async () => {
+    setLoading((prev) => ({ ...prev, fix_webhooks: true }));
+    try {
+      const res = await fetch('/api/admin/fix-webhooks', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setWebhookFixResult(`✅ Checked ${data.total} number${data.total !== 1 ? 's' : ''} — fixed ${data.fixed}`);
+      } else {
+        setWebhookFixResult(`❌ ${data.error}`);
+      }
+    } catch (err: unknown) {
+      setWebhookFixResult(`❌ ${err instanceof Error ? err.message : 'Failed'}`);
+    }
+    setLoading((prev) => ({ ...prev, fix_webhooks: false }));
+    setTimeout(() => setWebhookFixResult(null), 8000);
   };
 
   // Device Management
@@ -1455,7 +1473,24 @@ export default function AdminDashboard({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
+              <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+                <h3 className="text-lg font-black text-stone-900 mb-4">🔗 Fix Voice Webhooks</h3>
+                <p className="text-sm text-stone-500 mb-4">
+                  Ensures all Twilio phone numbers have the correct voice webhook URL set. Safe to run at any time.
+                </p>
+                {webhookFixResult && (
+                  <p className="text-sm font-medium mb-4">{webhookFixResult}</p>
+                )}
+                <button
+                  onClick={fixWebhooks}
+                  disabled={loading.fix_webhooks}
+                  className="w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {loading.fix_webhooks ? 'Fixing...' : 'Fix Webhooks'}
+                </button>
+              </div>
+
               <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
                 <h3 className="text-lg font-black text-stone-900 mb-4">🧹 SIP Cleanup</h3>
                 <p className="text-sm text-stone-500 mb-6">
