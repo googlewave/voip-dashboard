@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { escapeXml } from '@/lib/voip/xml';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = await params;
@@ -26,6 +27,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
 
   const sipDomain = device.sipDomain.replace(/:(\d+)$/, '');
   const displayName = device.name ?? device.sipUsername;
+  const escapedSipDomain = escapeXml(sipDomain);
+  const escapedSipUsername = escapeXml(device.sipUsername);
+  const escapedSipPassword = escapeXml(device.sipPassword);
+  const escapedDisplayName = escapeXml(displayName);
 
   // Dial plan: permissive — call validation happens at Twilio webhook level
   // { x+ } allows any digit sequence; Twilio voice webhook enforces whitelist
@@ -37,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     const contact = contacts.find((c) => c.quickDialSlot === slot);
     const pCode = 300 + slot;
     return contact && contact.phoneNumber
-      ? `    <P${pCode}>${contact.phoneNumber.replace(/\D/g, '')}</P${pCode}>`
+      ? `    <P${pCode}>${escapeXml(contact.phoneNumber.replace(/\D/g, ''))}</P${pCode}>`
       : `    <P${pCode}></P${pCode}>`;
   }).join('\n');
 
@@ -46,14 +51,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
   <config version="1">
 
     <!-- SIP Server -->
-    <P47>${sipDomain}</P47>
+    <P47>${escapedSipDomain}</P47>
     <P48>5060</P48>
 
     <!-- SIP Credentials -->
-    <P35>${device.sipUsername}</P35>
-    <P36>${device.sipUsername}</P36>
-    <P34>${device.sipPassword}</P34>
-    <P3>${displayName}</P3>
+    <P35>${escapedSipUsername}</P35>
+    <P36>${escapedSipUsername}</P36>
+    <P34>${escapedSipPassword}</P34>
+    <P3>${escapedDisplayName}</P3>
 
     <!-- Registration -->
     <P271>1</P271>

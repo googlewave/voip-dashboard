@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { escapeXml } from '@/lib/voip/xml';
 import { ensureTwilioSetup, createSipCredentials } from '@/lib/twilio-setup';
 
 const CONFIG_VERSION = '1.0.0';
@@ -235,6 +236,10 @@ function generateGrandstreamConfig(
   dialPlan: string,
   sipDomain: string
 ): string {
+  const escapedSipDomain = escapeXml(sipDomain);
+  const escapedSipUsername = escapeXml(device.sipUsername);
+  const escapedSipPassword = escapeXml(device.sipPassword);
+  const escapedDisplayName = escapeXml(displayName);
   // Speed dial slots 1-9 using correct HT801 P-codes (P301-P309)
   const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
     const slot = i + 1;
@@ -246,7 +251,7 @@ function generateGrandstreamConfig(
     const dialString = contact.contactType === 'ring_ring_friend' && contact.sipUsername
       ? `${contact.sipUsername}@${sipDomain}`
       : (contact.phoneNumber || '').replace(/\D/g, '');
-    return `    <P${pCode}>${dialString}</P${pCode}>`;
+    return `    <P${pCode}>${escapeXml(dialString)}</P${pCode}>`;
   }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -254,14 +259,14 @@ function generateGrandstreamConfig(
   <config version="1">
 
     <!-- SIP Server (domain only, port separate) -->
-    <P47>${sipDomain}</P47>
+    <P47>${escapedSipDomain}</P47>
     <P48>5060</P48>
 
     <!-- SIP Credentials -->
-    <P35>${device.sipUsername}</P35>
-    <P36>${device.sipUsername}</P36>
-    <P34>${device.sipPassword}</P34>
-    <P3>${displayName}</P3>
+    <P35>${escapedSipUsername}</P35>
+    <P36>${escapedSipUsername}</P36>
+    <P34>${escapedSipPassword}</P34>
+    <P3>${escapedDisplayName}</P3>
 
     <!-- Account Active + Registration -->
     <P271>1</P271>
@@ -320,6 +325,10 @@ function generateLinksysConfig(
   dialPlan: string,
   sipDomain: string
 ): string {
+  const escapedSipDomainWithPort = escapeXml(sipDomainWithPort);
+  const escapedDisplayName = escapeXml(displayName);
+  const escapedSipUsername = escapeXml(device.sipUsername);
+  const escapedSipPassword = escapeXml(device.sipPassword);
   const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
     const slot = i + 1;
     const contact = contacts.find((c) => c.quickDialSlot === slot);
@@ -329,19 +338,19 @@ function generateLinksysConfig(
     const dialString = contact.contactType === 'ring_ring_friend' && contact.sipUsername
       ? `${contact.sipUsername}@${sipDomain}`
       : contact.phoneNumber || '';
-    return `  <Speed_Dial_${slot}_>${contact.name}, ${dialString}</Speed_Dial_${slot}_>`;
+    return `  <Speed_Dial_${slot}_>${escapeXml(contact.name)}, ${escapeXml(dialString)}</Speed_Dial_${slot}_>`;
   }).join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <flat-profile>
   <!-- Line 1 SIP Settings -->
-  <Proxy_1_>${sipDomainWithPort}</Proxy_1_>
-  <Outbound_Proxy_1_>${sipDomainWithPort}</Outbound_Proxy_1_>
-  <Registrar_1_>${sipDomainWithPort}</Registrar_1_>
-  <Display_Name_1_>${displayName}</Display_Name_1_>
-  <User_ID_1_>${device.sipUsername}</User_ID_1_>
-  <Password_1_>${device.sipPassword}</Password_1_>
-  <Auth_ID_1_>${device.sipUsername}</Auth_ID_1_>
+  <Proxy_1_>${escapedSipDomainWithPort}</Proxy_1_>
+  <Outbound_Proxy_1_>${escapedSipDomainWithPort}</Outbound_Proxy_1_>
+  <Registrar_1_>${escapedSipDomainWithPort}</Registrar_1_>
+  <Display_Name_1_>${escapedDisplayName}</Display_Name_1_>
+  <User_ID_1_>${escapedSipUsername}</User_ID_1_>
+  <Password_1_>${escapedSipPassword}</Password_1_>
+  <Auth_ID_1_>${escapedSipUsername}</Auth_ID_1_>
 
   <!-- Line Enable -->
   <Line_Enable_1_>Yes</Line_Enable_1_>

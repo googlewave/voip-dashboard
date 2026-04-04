@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { escapeXml } from '@/lib/voip/xml';
 
 export async function GET(
   req: NextRequest,
@@ -31,7 +32,10 @@ export async function GET(
     const rawDomain = device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN!;
     const sipDomain = rawDomain.replace(/:(\d+)$/, '');
     const sipDomainWithPort = `${sipDomain}:5060`;
-    const displayName = device.name ?? device.sipUsername;
+    const displayName = escapeXml(device.name ?? device.sipUsername);
+    const sipUsername = escapeXml(device.sipUsername);
+    const sipPassword = escapeXml(device.sipPassword);
+    const escapedSipDomainWithPort = escapeXml(sipDomainWithPort);
 
     // Dial plan: permissive — call validation happens at Twilio webhook level
     const dialPlan = `([2-9]xxxxxxxxx|1[2-9]xxxxxxxxx|011x+|911|933)`;
@@ -40,20 +44,20 @@ export async function GET(
       const slot = i + 1;
       const contact = contacts.find((c) => c.quickDialSlot === slot);
       return contact && contact.phoneNumber
-        ? `  <Speed_Dial_${slot}_>${contact.name}, ${contact.phoneNumber}</Speed_Dial_${slot}_>`
+        ? `  <Speed_Dial_${slot}_>${escapeXml(contact.name)}, ${escapeXml(contact.phoneNumber)}</Speed_Dial_${slot}_>`
         : `  <Speed_Dial_${slot}_></Speed_Dial_${slot}_>`;
     }).join('\n');
 
     const config = `<?xml version="1.0" encoding="UTF-8"?>
 <flat-profile>
   <!-- Line 1 SIP Settings -->
-  <Proxy_1_>${sipDomainWithPort}</Proxy_1_>
-  <Outbound_Proxy_1_>${sipDomainWithPort}</Outbound_Proxy_1_>
-  <Registrar_1_>${sipDomainWithPort}</Registrar_1_>
+  <Proxy_1_>${escapedSipDomainWithPort}</Proxy_1_>
+  <Outbound_Proxy_1_>${escapedSipDomainWithPort}</Outbound_Proxy_1_>
+  <Registrar_1_>${escapedSipDomainWithPort}</Registrar_1_>
   <Display_Name_1_>${displayName}</Display_Name_1_>
-  <User_ID_1_>${device.sipUsername}</User_ID_1_>
-  <Password_1_>${device.sipPassword}</Password_1_>
-  <Auth_ID_1_>${device.sipUsername}</Auth_ID_1_>
+  <User_ID_1_>${sipUsername}</User_ID_1_>
+  <Password_1_>${sipPassword}</Password_1_>
+  <Auth_ID_1_>${sipUsername}</Auth_ID_1_>
 
   <!-- Line Enable -->
   <Line_Enable_1_>Yes</Line_Enable_1_>

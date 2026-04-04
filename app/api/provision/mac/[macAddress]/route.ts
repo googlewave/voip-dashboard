@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { escapeXml } from '@/lib/voip/xml';
 
 const DEFAULT_PROVISION_INTERVAL_MINUTES = 5;
 
@@ -44,6 +45,11 @@ function normalizePhoneNumber(raw: string) {
 function generateGrandstreamConfig(device: GrandstreamProvisionDevice, contacts: ProvisionContact[]) {
   const sipDomain = device.sipDomain ?? 'ringringclub.sip.twilio.com';
   const provisionIntervalMinutes = getProvisionIntervalMinutes();
+  const escapedMacAddress = escapeXml(device.macAddress?.replace(/:/g, '').toLowerCase());
+  const escapedSipDomain = escapeXml(sipDomain);
+  const escapedSipUsername = escapeXml(device.sipUsername);
+  const escapedSipPassword = escapeXml(device.sipPassword);
+  const escapedDeviceName = escapeXml(device.name);
   const speedDialEntries = Array.from({ length: 9 }, (_, i) => {
     const slot = i + 1;
     const pCode = 300 + slot;
@@ -55,11 +61,11 @@ function generateGrandstreamConfig(device: GrandstreamProvisionDevice, contacts:
 
     const normalizedSip = contact.sipAddress?.replace(/^sip:/, '') || '';
     if (normalizedSip) {
-      return `    <P${pCode}>${normalizedSip}</P${pCode}>`;
+      return `    <P${pCode}>${escapeXml(normalizedSip)}</P${pCode}>`;
     }
 
     if (contact.phoneNumber) {
-      return `    <P${pCode}>${normalizePhoneNumber(contact.phoneNumber)}</P${pCode}>`;
+      return `    <P${pCode}>${escapeXml(normalizePhoneNumber(contact.phoneNumber))}</P${pCode}>`;
     }
 
     return `    <P${pCode}></P${pCode}>`;
@@ -67,18 +73,18 @@ function generateGrandstreamConfig(device: GrandstreamProvisionDevice, contacts:
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <gs_provision version="1">
-  <mac>${device.macAddress?.replace(/:/g, '').toLowerCase()}</mac>
+  <mac>${escapedMacAddress}</mac>
   <config version="1">
 
     <!-- SIP Server -->
-    <P47>${sipDomain}</P47>
+    <P47>${escapedSipDomain}</P47>
     <P48></P48>
 
     <!-- SIP Credentials -->
-    <P35>${device.sipUsername}</P35>
-    <P36>${device.sipUsername}</P36>
-    <P34>${device.sipPassword}</P34>
-    <P3>${device.name}</P3>
+    <P35>${escapedSipUsername}</P35>
+    <P36>${escapedSipUsername}</P36>
+    <P34>${escapedSipPassword}</P34>
+    <P3>${escapedDeviceName}</P3>
 
     <!-- Account Active + Registration -->
     <P271>1</P271>
