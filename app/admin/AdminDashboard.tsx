@@ -69,7 +69,7 @@ export default function AdminDashboard({
   const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
   const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [editDeviceForm, setEditDeviceForm] = useState({ name: '', macAddress: '', adapterType: '' });
+  const [editDeviceForm, setEditDeviceForm] = useState({ name: '', macAddress: '', adapterType: '', phoneNumber: '' });
 
   // User Management
   const [showAddUser, setShowAddUser] = useState(false);
@@ -364,6 +364,7 @@ export default function AdminDashboard({
       name: device.name,
       macAddress: device.macAddress || '',
       adapterType: device.adapterType || '',
+      phoneNumber: device.phoneNumber || '',
     });
     setShowEditDeviceModal(true);
   };
@@ -1549,6 +1550,19 @@ export default function AdminDashboard({
                     <option value="grandstream">Grandstream HT801</option>
                     <option value="other">Other</option>
                   </select>
+                </div>
+
+                {/* Phone Line */}
+                <div>
+                  <label className="text-sm font-bold text-stone-700 mb-2 block">Phone Line <span className="text-stone-400">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={editDeviceForm.phoneNumber}
+                    onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, phoneNumber: e.target.value.trim() }))}
+                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-blue-500 font-mono"
+                    placeholder="e.g. +16108549109"
+                  />
+                  <p className="text-xs text-stone-400 mt-1">E.164 format. Leave blank to clear the assigned line.</p>
                 </div>
 
                 {/* MAC Address */}

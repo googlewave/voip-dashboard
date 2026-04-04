@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const { deviceId } = await params;
-    const { name, macAddress, adapterType } = await req.json();
+    const { name, macAddress, adapterType, phoneNumber } = await req.json();
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -54,11 +54,13 @@ export async function POST(
         name: name.trim(),
         adapterType: adapterType || null,
         macAddress: normalizedMac,
+        phoneNumber: phoneNumber?.trim() || null,
       },
       select: {
         id: true,
         userId: true,
         name: true,
+        phoneNumber: true,
         sipUsername: true,
         sipPassword: true,
         sipDomain: true,
