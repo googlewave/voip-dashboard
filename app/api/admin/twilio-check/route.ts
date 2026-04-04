@@ -30,6 +30,7 @@ export async function POST() {
       results.push(`\n📡 Domain: ${domain.domainName}`);
       results.push(`   SID: ${domain.sid}`);
       results.push(`   Voice URL: ${domain.voiceUrl || '⚠️ NOT SET'}`);
+      results.push(`   Voice Fallback URL: ${domain.voiceFallbackUrl || '⚠️ NOT SET'}`);
       results.push(`   Voice Method: ${domain.voiceMethod}`);
       results.push(`   SIP Registration: ${domain.sipRegistration}`);
 

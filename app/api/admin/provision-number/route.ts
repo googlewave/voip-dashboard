@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
       phoneNumber: available[0].phoneNumber,
       voiceUrl: voiceWebhookUrl,
       voiceMethod: 'POST',
+      voiceFallbackUrl: voiceWebhookUrl,
+      voiceFallbackMethod: 'POST',
     });
 
     // 3. Create E911 address and attach in two separate updates

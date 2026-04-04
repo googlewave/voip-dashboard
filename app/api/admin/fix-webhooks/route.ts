@@ -18,21 +18,33 @@ export async function POST() {
     // Get all numbers from Twilio
     const numbers = await twilioClient.incomingPhoneNumbers.list({ limit: 100 });
 
-    const results: { number: string; was: string | null; fixed: boolean }[] = [];
+    const results: {
+      number: string;
+      voiceWas: string | null;
+      fallbackWas: string | null;
+      fixed: boolean;
+    }[] = [];
     let fixedCount = 0;
 
     for (const num of numbers) {
-      const alreadyCorrect = num.voiceUrl === voiceWebhookUrl;
+      const alreadyCorrect =
+        num.voiceUrl === voiceWebhookUrl &&
+        num.voiceFallbackUrl === voiceWebhookUrl;
+
       if (!alreadyCorrect) {
         await twilioClient.incomingPhoneNumbers(num.sid).update({
           voiceUrl: voiceWebhookUrl,
           voiceMethod: 'POST',
+          voiceFallbackUrl: voiceWebhookUrl,
+          voiceFallbackMethod: 'POST',
         });
         fixedCount++;
       }
+
       results.push({
         number: num.phoneNumber,
-        was: num.voiceUrl || null,
+        voiceWas: num.voiceUrl || null,
+        fallbackWas: num.voiceFallbackUrl || null,
         fixed: !alreadyCorrect,
       });
     }
