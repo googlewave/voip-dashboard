@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { escapeXml } from '@/lib/voip/xml';
+import { ensureTwilioSetup, createSipCredentials } from '@/lib/twilio-setup';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = await params;
@@ -8,6 +9,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
   const device = await prisma.device.findUnique({
     where: { id: deviceId },
     select: {
+      id: true,
       sipUsername: true,
       sipPassword: true,
       sipDomain: true,
@@ -15,8 +17,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     },
   });
 
-  if (!device?.sipUsername || !device?.sipPassword || !device?.sipDomain) {
+  if (!device) {
     return new NextResponse('Device not found or SIP not provisioned', { status: 404 });
+  }
+
+  await ensureTwilioSetup();
+
+  if (!device.sipUsername || !device.sipPassword) {
+    const username = `sip_${deviceId.slice(-6)}_${Date.now()}`;
+    const password = Math.random().toString(36).slice(-12) + 'A1!';
+
+    await createSipCredentials(username, password);
+
+    await prisma.device.update({
+      where: { id: deviceId },
+      data: {
+        sipUsername: username,
+        sipPassword: password,
+        sipDomain: process.env.TWILIO_SIP_DOMAIN,
+      },
+    });
+
+    device.sipUsername = username;
+    device.sipPassword = password;
+    device.sipDomain = process.env.TWILIO_SIP_DOMAIN || null;
   }
 
   const contacts = await prisma.contact.findMany({
@@ -25,7 +49,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     select: { name: true, phoneNumber: true, quickDialSlot: true },
   });
 
-  const sipDomain = device.sipDomain.replace(/:(\d+)$/, '');
+  const sipDomain = (device.sipDomain ?? process.env.TWILIO_SIP_DOMAIN ?? 'ringringclub.sip.twilio.com').replace(/:(\d+)$/, '');
   const displayName = device.name ?? device.sipUsername;
   const escapedSipDomain = escapeXml(sipDomain);
   const escapedSipUsername = escapeXml(device.sipUsername);

@@ -117,8 +117,8 @@ export default function AdminClient({
   };
 
   const copyProvisionUrl = (deviceId: string, adapterType: string | null) => {
-    const cfgFile = adapterType === 'grandstream' ? 'grandstream.cfg' : 'linksys.cfg';
-    const url = `${window.location.origin}/api/provision/${deviceId}/${cfgFile}`;
+    const typeParam = adapterType === 'grandstream' ? 'grandstream' : 'linksys';
+    const url = `${window.location.origin}/api/provision/auto/${deviceId}?type=${typeParam}`;
     navigator.clipboard.writeText(url);
     setCopiedId(deviceId);
     setTimeout(() => setCopiedId(null), 2000);

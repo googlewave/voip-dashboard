@@ -314,8 +314,8 @@ export default function AdminDashboard({
 
 
   const copyProvisionUrl = (deviceId: string, adapterType: string) => {
-    const type = adapterType === 'grandstream' ? 'grandstream.cfg' : 'linksys.cfg';
-    const url = `${window.location.origin}/api/provision/${deviceId}/${type}`;
+    const typeParam = adapterType === 'grandstream' ? 'grandstream' : 'linksys';
+    const url = `${window.location.origin}/api/provision/auto/${deviceId}?type=${typeParam}`;
     navigator.clipboard.writeText(url);
     setCopiedId(deviceId);
     setTimeout(() => setCopiedId(null), 2000);
