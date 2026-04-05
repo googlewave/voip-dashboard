@@ -343,7 +343,7 @@ export default function SetupPage() {
             <div>
               <div className="text-white font-bold mb-4">The Club</div>
               <nav className="space-y-2">
-                <a href="#" className="block hover:text-white transition">Our Analog Story</a>
+                <a href="/our-story" className="block hover:text-white transition">Our Analog Story</a>
                 <a href="#" className="block hover:text-white transition">How It Works</a>
                 <a href="#" className="block hover:text-white transition">The Shop</a>
                 <a href="#" className="block hover:text-white transition">Pricing</a>

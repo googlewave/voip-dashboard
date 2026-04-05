@@ -269,7 +269,7 @@ All 4 legal links are wired to real routes: `/terms` | `/privacy` | `/e911` | `/
 | How It Works | `/how-it-works` | ⬜ Not built (section exists on landing) |
 | The Ring Ring Shop | `/shop` | ⬜ Not built |
 | Pricing | `/pricing` | ⬜ Not built (section exists on landing) |
-| Our (analog) story *(About Us)* | `/our-story` | ⬜ Not built |
+| Our (analog) story *(About Us)* | `/our-story` | ✅ Built |
 | Invite a Neighbor | `/invite` | ✅ Built |
 | Admin Portal | `/admin` | ✅ Built |
 
