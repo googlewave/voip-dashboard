@@ -108,6 +108,14 @@ type SavedNetworkTest = {
   analysis: NetworkTestAnalysis;
 };
 
+type NetworkTestProbe = {
+  ok: boolean;
+  status: number;
+  durationMs: number;
+  looksLikeProvisioning: boolean;
+  error?: string;
+};
+
 function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
   if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
   if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
@@ -118,48 +126,107 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
   const [copied, setCopied] = useState(false);
   const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
   const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
+  const [runningNetworkCheck, setRunningNetworkCheck] = useState(false);
+  const [networkCheckError, setNetworkCheckError] = useState<string | null>(null);
+
   const typeParam = adapterType === 'linksys' ? '?type=linksys' : adapterType === 'grandstream' ? '?type=grandstream' : '';
   const url = typeof window !== 'undefined'
     ? `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
     : `/api/provision/auto/${deviceId}${typeParam}`;
-  const networkTestUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/network-test?deviceId=${deviceId}&url=${encodeURIComponent(url)}`
-    : `/network-test?deviceId=${deviceId}&url=${encodeURIComponent(url)}`;
+
+  const loadNetworkResult = async () => {
+    const res = await fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' });
+    const data = await res.json();
+    setNetworkResult(data.result ?? null);
+  };
 
   useEffect(() => {
     let active = true;
-    setLoadingNetworkResult(true);
-    fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => {
+
+    const init = async () => {
+      setLoadingNetworkResult(true);
+      try {
+        const res = await fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' });
+        const data = await res.json();
         if (!active) return;
         setNetworkResult(data.result ?? null);
-      })
-      .catch(() => {
+      } catch {
         if (!active) return;
         setNetworkResult(null);
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoadingNetworkResult(false);
-      });
-
-    const onFocus = () => {
-      fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' })
-        .then((res) => res.json())
-        .then((data) => {
-          if (active) setNetworkResult(data.result ?? null);
-        })
-        .catch(() => {
-          if (active) setNetworkResult(null);
-        });
+      }
     };
 
-    window.addEventListener('focus', onFocus);
+    void init();
+
     return () => {
       active = false;
-      window.removeEventListener('focus', onFocus);
     };
   }, [deviceId]);
+
+  const runNetworkCheck = async () => {
+    setRunningNetworkCheck(true);
+    setNetworkCheckError(null);
+
+    try {
+      const startedAt = performance.now();
+      let browser: NetworkTestProbe;
+
+      try {
+        const browserResponse = await fetch(url, { cache: 'no-store' });
+        const preview = await browserResponse.text();
+        browser = {
+          ok: browserResponse.ok,
+          status: browserResponse.status,
+          durationMs: Math.round(performance.now() - startedAt),
+          looksLikeProvisioning: /<flat-profile>|<gs_provision|Provisioning failed|Device not found/i.test(preview),
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Browser fetch failed';
+        browser = {
+          ok: false,
+          status: 0,
+          durationMs: Math.round(performance.now() - startedAt),
+          looksLikeProvisioning: false,
+          error: message,
+        };
+      }
+
+      const serverResponse = await fetch('/api/network-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const serverData = await serverResponse.json();
+
+      const server: NetworkTestProbe = {
+        ok: !!serverData.ok,
+        status: Number(serverData.status ?? 0),
+        durationMs: Number(serverData.durationMs ?? 0),
+        looksLikeProvisioning: !!serverData.looksLikeProvisioning,
+        error: serverData.error || undefined,
+      };
+
+      await fetch('/api/network-test/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId,
+          provisioningUrl: url,
+          browser,
+          server,
+        }),
+      });
+
+      await loadNetworkResult();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Could not run network check.';
+      setNetworkCheckError(message);
+    } finally {
+      setRunningNetworkCheck(false);
+    }
+  };
 
   const networkReady = networkResult?.analysis.outcome === 'ready';
 
@@ -172,44 +239,35 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
   return (
     <div className="space-y-4">
       <div className={`rounded-2xl border p-4 ${networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 1</p>
-            <h4 className="text-lg font-black">Validate this router first</h4>
-            <p className="mt-1 text-sm opacity-80">
-              Run the network test on the same Wi-Fi or LAN as the adapter before you continue with provisioning.
-            </p>
+            <h4 className="text-lg font-black">Run one quick connection check</h4>
+            <p className="mt-1 text-sm opacity-80">Tap the button below while your phone adapter is on the same home network.</p>
           </div>
-          <a
-            href={networkTestUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-full bg-white/80 px-4 py-2 text-xs font-black text-stone-900 hover:bg-white transition"
+          <button
+            onClick={runNetworkCheck}
+            disabled={runningNetworkCheck}
+            className="inline-flex items-center justify-center rounded-full bg-white/80 px-4 py-2 text-xs font-black text-stone-900 hover:bg-white transition disabled:opacity-60"
           >
-            Open Network Test
-          </a>
+            {runningNetworkCheck ? 'Checking…' : 'Run Connection Check'}
+          </button>
         </div>
 
         <div className="mt-4 rounded-2xl bg-white/70 px-4 py-3">
           {loadingNetworkResult ? (
-            <p className="text-sm">Checking latest network test result…</p>
+            <p className="text-sm">Checking your latest result…</p>
           ) : networkResult ? (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <p className="text-sm font-black">{networkResult.analysis.title}</p>
               <p className="text-sm">{networkResult.analysis.summary}</p>
               <p className="text-xs opacity-70">Last checked {new Date(networkResult.createdAt).toLocaleString()}</p>
-              <ul className="space-y-1 text-sm">
-                {networkResult.analysis.actions.map((action) => (
-                  <li key={action}>• {action}</li>
-                ))}
-              </ul>
             </div>
           ) : (
-            <div className="space-y-2">
-              <p className="text-sm font-black">Network test required before setup</p>
-              <p className="text-sm">Open the network test first. If it passes, come back here and continue with the provisioning steps below.</p>
-            </div>
+            <p className="text-sm">No check run yet. Start with the button above.</p>
           )}
+
+          {networkCheckError && <p className="mt-2 text-sm text-red-700">{networkCheckError}</p>}
         </div>
       </div>
 
@@ -217,7 +275,7 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 2</p>
-            <p className="text-sm font-bold text-stone-700 mb-2">Your provisioning URL</p>
+            <p className="text-sm font-bold text-stone-700 mb-2">Copy your setup link</p>
           </div>
           {!networkReady && (
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 1 first</span>
@@ -228,31 +286,30 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
           <button
             onClick={copy}
             disabled={!networkReady}
-            className="shrink-0 px-3 py-1.5 bg-[#C4531A] text-white text-xs font-bold rounded-lg hover:bg-[#a84313] transition"
+            className="shrink-0 px-3 py-1.5 bg-[#C4531A] text-white text-xs font-bold rounded-lg hover:bg-[#a84313] transition disabled:opacity-60"
           >
-            {copied ? '✓ Copied' : 'Copy'}
+            {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
-        {!networkReady && <p className="mt-3 text-xs text-stone-500">The copy button unlocks after a passing network test so you validate the router before provisioning.</p>}
       </div>
-      <ol className="space-y-3">
-        {[
-          { n: '3', text: 'Find your adapter\'s local IP — it\'s usually printed on the bottom label, or check your router\'s device list.' },
-          { n: '4', text: 'Open a browser and go to http://[adapter-ip] to access the web interface.' },
-          { n: '5', text: 'Log in (default credentials are on the label — usually admin / admin).' },
-          { n: '6', text: 'Find the Provisioning or Auto Provision section (may be under Advanced Settings).' },
-          { n: '7', text: 'Paste the URL above into the Config Server Path field.' },
-          { n: '8', text: 'Click Save & Apply. The adapter will reboot and auto-configure itself — takes about 60 seconds.' },
-          { n: '9', text: 'Pick up the phone — you should hear a dial tone. You\u2019re live!' },
-        ].map(({ n, text }) => (
-          <li key={n} className="flex gap-3">
-            <span className="w-6 h-6 rounded-full bg-stone-800 text-white font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
-            <p className="text-sm text-stone-600">{text}</p>
-          </li>
-        ))}
-      </ol>
+
+      <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 3</p>
+            <p className="text-sm font-bold text-stone-700 mb-2">Paste link into your adapter</p>
+          </div>
+        </div>
+        <ol className="space-y-2 text-sm text-stone-600">
+          <li>1. Open your adapter page in a browser using its local IP (example: <span className="font-mono">http://192.168.1.50</span>).</li>
+          <li>2. Sign in and find <strong>Provisioning</strong> or <strong>Config Server</strong>.</li>
+          <li>3. Paste your copied link, click <strong>Save / Apply</strong>, then wait about 1 minute for reboot.</li>
+        </ol>
+        <p className="mt-3 text-sm text-stone-500">After reboot, pick up the phone and check for dial tone.</p>
+      </div>
+
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-sm text-blue-800"><strong>Need help?</strong> Email us at <a href="mailto:hello@ringring.club" className="underline">hello@ringring.club</a> and we\'ll walk you through it.</p>
+        <p className="text-sm text-blue-800"><strong>Need help right now?</strong> Email <a href="mailto:hello@ringring.club" className="underline">hello@ringring.club</a> and we will guide you live.</p>
       </div>
     </div>
   );
@@ -902,14 +959,12 @@ function DashboardInner() {
 
                 {/* Setup guide steps (pre-registration) */}
                 <div className="bg-white rounded-3xl p-8 border-2 border-stone-100">
-                  <h3 className="text-lg font-black text-stone-900 mb-6">How to connect your Ring Ring Bridge</h3>
-                  <ol className="space-y-5">
+                  <h3 className="text-lg font-black text-stone-900 mb-4">Quick start (no tech skills needed)</h3>
+                  <ol className="space-y-4">
                     {[
-                      { n: '1', title: 'Connect to your router', desc: 'Plug one end of an ethernet cable into your Ring Ring Bridge adapter, the other end into your home router.' },
-                      { n: '2', title: 'Connect your phone', desc: 'Plug your analog phone into Port 1 (labeled "Phone 1") on the adapter.' },
-                      { n: '3', title: 'Power it on', desc: 'Connect the power adapter and wait about 30 seconds for the device to boot up.' },
-                      { n: '4', title: 'Register it above', desc: 'Give your device a name in the field above and click Register Device. Our team will activate it shortly.' },
-                      { n: '5', title: 'Enter the provisioning URL', desc: 'Once activated, come back here — you\'ll see a Setup Guide button with your unique URL to paste into the adapter\'s web interface.' },
+                      { n: '1', title: 'Plug it in', desc: 'Connect the Ring Ring Bridge to your router and power.' },
+                      { n: '2', title: 'Connect your phone', desc: 'Plug your home phone into Phone 1 on the Bridge.' },
+                      { n: '3', title: 'Register above', desc: 'Type a simple name and tap Register Device. We activate it, then your one-page setup opens right here.' },
                     ].map(({ n, title, desc }) => (
                       <li key={n} className="flex gap-4">
                         <span className="w-8 h-8 rounded-full bg-[#C4531A] text-white font-black text-sm flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
