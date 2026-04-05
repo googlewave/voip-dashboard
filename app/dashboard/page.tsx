@@ -27,6 +27,7 @@ interface Device {
   created_at: string;
   sip_username: string | null;
   adapter_type: string | null;
+  mac_address: string | null;
   quiet_hours_enabled: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
@@ -89,19 +90,212 @@ type Invoice = {
   pdf: string | null;
 };
 
+type NetworkTestAnalysis = {
+  outcome: 'ready' | 'router-blocking' | 'wrong-url' | 'server-issue' | 'mixed-failure' | 'unknown';
+  severity: 'success' | 'warning' | 'error';
+  title: string;
+  summary: string;
+  actions: string[];
+};
+
+type SavedNetworkTest = {
+  id: string;
+  deviceId: string;
+  provisioningUrl: string;
+  outcome: string;
+  summary: string;
+  createdAt: string;
+  clientIp: string | null;
+  analysis: NetworkTestAnalysis;
+};
+
+type NetworkTestProbe = {
+  ok: boolean;
+  status: number;
+  durationMs: number;
+  looksLikeProvisioning: boolean;
+  error?: string;
+};
+
+function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
+  if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
+  return 'border-amber-200 bg-amber-50 text-amber-900';
+}
+
+function getParentFacingNetworkCopy(analysis: NetworkTestAnalysis) {
+  if (analysis.outcome === 'ready') {
+    return {
+      title: 'Your home network looks ready',
+      summary: 'Your router can reach Ring Ring correctly, so your adapter should be able to finish setup on its own.',
+    };
+  }
+
+  if (analysis.outcome === 'wrong-url') {
+    return {
+      title: 'We need to double-check this device on our side',
+      summary: 'Your network reached us, but this device did not return the setup file we expected. We may need to review the device record before it can finish setup.',
+    };
+  }
+
+  if (analysis.outcome === 'router-blocking') {
+    return {
+      title: 'Your router may be blocking setup',
+      summary: 'Our system is ready, but your home network did not let the setup request through cleanly. Try again on your main home network, not guest Wi-Fi.',
+    };
+  }
+
+  if (analysis.outcome === 'server-issue') {
+    return {
+      title: 'We need to review something on our side',
+      summary: 'Your network reached the setup service, but the backend validation did not fully pass. Contact us and we can finish the setup with you.',
+    };
+  }
+
+  if (analysis.outcome === 'mixed-failure') {
+    return {
+      title: 'The connection check did not pass yet',
+      summary: 'We could not confirm the setup from your side or ours. Try once more, then contact us if it still fails.',
+    };
+  }
+
+  return {
+    title: 'The connection check needs another try',
+    summary: 'We could not clearly confirm the result. Please run the check once more.',
+  };
+}
+
 function SetupGuidePanel({
+  deviceId,
   deviceName,
   adapterType,
+  macAddress,
   phoneNumber,
 }: {
+  deviceId: string;
   deviceName: string;
   adapterType?: string | null;
+  macAddress?: string | null;
   phoneNumber?: string | null;
 }) {
   const adapterLabel =
     adapterType === 'grandstream' ? 'Grandstream HT801'
     : adapterType === 'linksys' ? 'Linksys SPA2102'
     : 'your adapter';
+
+  const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
+  const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
+  const [runningNetworkCheck, setRunningNetworkCheck] = useState(false);
+  const [networkCheckError, setNetworkCheckError] = useState<string | null>(null);
+
+  const normalizedMac = macAddress?.replace(/[^a-fA-F0-9]/g, '').toLowerCase() ?? '';
+  const typeParam = adapterType === 'linksys' ? '?type=linksys' : adapterType === 'grandstream' ? '?type=grandstream' : '';
+  const provisioningUrl = typeof window !== 'undefined'
+    ? normalizedMac
+      ? `${window.location.origin}/api/provision/mac/${normalizedMac}`
+      : `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
+    : normalizedMac
+      ? `/api/provision/mac/${normalizedMac}`
+      : `/api/provision/auto/${deviceId}${typeParam}`;
+
+  useEffect(() => {
+    let active = true;
+
+    const loadNetworkResult = async () => {
+      setLoadingNetworkResult(true);
+      try {
+        const res = await fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (!active) return;
+        setNetworkResult(data.result ?? null);
+      } catch {
+        if (!active) return;
+        setNetworkResult(null);
+      } finally {
+        if (active) setLoadingNetworkResult(false);
+      }
+    };
+
+    void loadNetworkResult();
+
+    return () => {
+      active = false;
+    };
+  }, [deviceId]);
+
+  const runNetworkCheck = async () => {
+    setRunningNetworkCheck(true);
+    setNetworkCheckError(null);
+
+    try {
+      const startedAt = performance.now();
+      let browser: NetworkTestProbe;
+
+      try {
+        const browserResponse = await fetch(provisioningUrl, { cache: 'no-store' });
+        const preview = await browserResponse.text();
+        browser = {
+          ok: browserResponse.ok,
+          status: browserResponse.status,
+          durationMs: Math.round(performance.now() - startedAt),
+          looksLikeProvisioning: /<flat-profile>|<gs_provision|Provisioning failed|Device not found/i.test(preview),
+        };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Browser fetch failed';
+        browser = {
+          ok: false,
+          status: 0,
+          durationMs: Math.round(performance.now() - startedAt),
+          looksLikeProvisioning: false,
+          error: message,
+        };
+      }
+
+      const serverResponse = await fetch('/api/network-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: provisioningUrl }),
+      });
+      const serverData = await serverResponse.json();
+
+      const server: NetworkTestProbe = {
+        ok: !!serverData.ok,
+        status: Number(serverData.status ?? 0),
+        durationMs: Number(serverData.durationMs ?? 0),
+        looksLikeProvisioning: !!serverData.looksLikeProvisioning,
+        error: serverData.error || undefined,
+      };
+
+      const resultResponse = await fetch('/api/network-test/result', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId,
+          provisioningUrl,
+          browser,
+          server,
+        }),
+      });
+      const resultData = await resultResponse.json();
+
+      setNetworkResult(resultData.result ? {
+        ...resultData.result,
+        deviceId,
+        provisioningUrl,
+        clientIp: null,
+        analysis: resultData.analysis,
+      } : null);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Could not run connection check.';
+      setNetworkCheckError(message);
+    } finally {
+      setRunningNetworkCheck(false);
+      setLoadingNetworkResult(false);
+    }
+  };
+
+  const parentFacingCopy = networkResult ? getParentFacingNetworkCopy(networkResult.analysis) : null;
+  const networkReady = networkResult?.analysis.outcome === 'ready';
 
   return (
     <div className="space-y-3">
@@ -125,16 +319,6 @@ function SetupGuidePanel({
             title: 'Connect your home phone',
             desc: 'Plug your home phone handset into the port labeled Phone 1 (or Line 1) on the adapter.',
           },
-          {
-            n: '3',
-            title: 'Wait about one minute',
-            desc: 'The adapter will connect to the internet and configure itself automatically. The indicator lights will steady out when it is ready.',
-          },
-          {
-            n: '4',
-            title: 'Pick up the phone',
-            desc: 'Lift the handset. You should hear a normal dial tone — that means everything is working.',
-          },
         ].map(({ n, title, desc }) => (
           <li key={n} className="flex gap-4 rounded-2xl border border-stone-100 bg-white p-4">
             <span className="w-7 h-7 rounded-full bg-stone-900 text-white font-black text-sm flex items-center justify-center flex-shrink-0">{n}</span>
@@ -145,6 +329,54 @@ function SetupGuidePanel({
           </li>
         ))}
       </ol>
+
+      <div className={`rounded-2xl border p-4 ${networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 3</p>
+            <h4 className="text-lg font-black">Check your network</h4>
+            <p className="mt-1 text-sm opacity-80">Run this while the adapter is plugged into your usual home router.</p>
+          </div>
+          <button
+            onClick={runNetworkCheck}
+            disabled={runningNetworkCheck}
+            className="inline-flex items-center justify-center rounded-full bg-white/80 px-4 py-2 text-xs font-black text-stone-900 hover:bg-white transition disabled:opacity-60"
+          >
+            {runningNetworkCheck ? 'Checking…' : 'Run Connection Check'}
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-white/70 px-4 py-3">
+          {loadingNetworkResult ? (
+            <p className="text-sm">Checking your latest result…</p>
+          ) : networkResult ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-black">{parentFacingCopy?.title}</p>
+              <p className="text-sm">{parentFacingCopy?.summary}</p>
+              <p className="text-xs opacity-70">Last checked {new Date(networkResult.createdAt).toLocaleString()}</p>
+            </div>
+          ) : (
+            <p className="text-sm">No check run yet. Start with the button above.</p>
+          )}
+
+          {networkCheckError && <p className="mt-2 text-sm text-red-700">{networkCheckError}</p>}
+        </div>
+      </div>
+
+      <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 4</p>
+            <p className="text-sm font-bold text-stone-700">Finish setup</p>
+          </div>
+          {!networkReady && (
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 3 first</span>
+          )}
+        </div>
+        <p className="mt-2 text-sm text-stone-600">
+          If the check passes, give the adapter about one minute to finish booting, then pick up the phone and listen for dial tone.
+        </p>
+      </div>
 
       {/* No dial tone fallback */}
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
@@ -634,8 +866,10 @@ function DashboardInner() {
                         {showSetupGuide === device.id && device.sip_username && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             <SetupGuidePanel
+                              deviceId={device.id}
                               deviceName={device.name}
                               adapterType={device.adapter_type}
+                              macAddress={device.mac_address}
                               phoneNumber={device.phone_number}
                             />
                           </div>
