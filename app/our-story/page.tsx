@@ -53,7 +53,7 @@ export default function OurStoryPage() {
             </p>
 
             {/* Hero photo — the 4 adults from the restaurant */}
-            <div className="w-full h-72 md:h-96 rounded-3xl bg-stone-200 overflow-hidden relative shadow-md mb-4 bg-cover bg-center" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1200&q=80")' }}>
+            <div className="w-full h-72 md:h-96 rounded-3xl bg-stone-200 overflow-hidden relative shadow-md mb-4 bg-cover bg-center" style={{ backgroundImage: 'url("https://image.pollinations.ai/prompt/two%20couples%20four%20adults%20laughing%20together%20at%20warm%20candlelit%20restaurant%20dinner%20table%2C%20glasses%20raised%2C%20candid%20documentary%20photography%2C%20golden%20amber%20light%2C%2035mm%20film%20grain%2C%20nostalgic%20warmth%2C%20bokeh%20background?width=1200&height=500&nologo=true")' }}>
               <div className="absolute inset-0 bg-gradient-to-br from-amber-800/10 to-stone-900/30" />
               <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.75\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundRepeat: 'repeat', backgroundSize: '180px' }} />
             </div>
@@ -80,9 +80,9 @@ export default function OurStoryPage() {
             {/* 3 stock photo placeholders */}
             <div className="grid grid-cols-3 gap-4">
               {[
-                { caption: 'A rotary dial phone — close-up, warm light', url: 'https://images.unsplash.com/photo-1520697517641-b65ff6ed3e66?auto=format&fit=crop&w=400&q=80' },
-                { caption: 'A bicycle leaning against a curb on a quiet street', url: 'https://images.unsplash.com/photo-1552085876-056e87f87266?auto=format&fit=crop&w=400&q=80' },
-                { caption: 'A handwritten note on folded paper', url: 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=400&q=80' },
+                { caption: 'Rotary dial phone', url: 'https://image.pollinations.ai/prompt/close%20up%20vintage%20rotary%20dial%20telephone%20mounted%20on%20kitchen%20wall%2C%20warm%20amber%20bokeh%20background%2C%2035mm%20film%20grain%20photography%2C%20retro%20nostalgic%2C%20soft%20shadow?width=400&height=400&nologo=true' },
+                { caption: 'Bicycle on a quiet street', url: 'https://image.pollinations.ai/prompt/red%20bicycle%20leaning%20against%20white%20picket%20fence%20on%20quiet%20suburban%20street%2C%20golden%20hour%20sunlight%2C%20long%20shadow%2C%20nostalgic%20childhood%2C%2035mm%20film%20grain%2C%20empty%20neighborhood?width=400&height=400&nologo=true' },
+                { caption: 'Handwritten note', url: 'https://image.pollinations.ai/prompt/handwritten%20note%20on%20folded%20loose%20leaf%20paper%2C%20childlike%20handwriting%2C%20crayon%20doodles%20in%20margins%2C%20wooden%20desk%2C%20warm%20soft%20light%2C%20top%20down%20view%2C%20nostalgic%20film%20grain?width=400&height=400&nologo=true' },
               ].map((item) => (
                 <div key={item.caption} className="aspect-square rounded-2xl bg-stone-100 overflow-hidden relative shadow-sm bg-cover bg-center" style={{ backgroundImage: `url("${item.url}")` }}>
                   <div className="absolute inset-0 bg-gradient-to-br from-amber-900/10 to-stone-800/30" />
@@ -115,8 +115,8 @@ export default function OurStoryPage() {
             {/* Jack + Louise photos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {[
-                { label: 'Jack', url: 'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=600&q=80' },
-                { label: 'Louise', url: 'https://images.unsplash.com/photo-1498749363022-de9f1a238fb3?auto=format&fit=crop&w=600&q=80' },
+                { label: 'Jack', url: 'https://image.pollinations.ai/prompt/cozy%20living%20room%20floor%20with%20corded%20telephone%20handset%20lying%20on%20carpet%2C%20comic%20books%20and%20crayons%20scattered%20around%2C%20warm%20golden%20hour%20light%20through%20window%2C%20nostalgic%201990s%20home%2C%20film%20grain%2C%20wide%20angle?width=600&height=400&nologo=true' },
+                { label: 'Louise', url: 'https://image.pollinations.ai/prompt/cozy%20plush%20armchair%20next%20to%20wooden%20side%20table%20with%20home%20landline%20telephone%2C%20sunlit%20afternoon%20living%20room%2C%20knitted%20throw%20blanket%2C%20nostalgic%201990s%20domestic%20scene%2C%2035mm%20film%20grain?width=600&height=400&nologo=true' },
               ].map((item) => (
                 <div key={item.label} className="relative">
                   <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden shadow-md relative bg-cover bg-center" style={{ backgroundImage: `url("${item.url}")` }}>
@@ -196,7 +196,7 @@ export default function OurStoryPage() {
             </div>
 
             {/* Child's phone book photo */}
-            <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden relative shadow-md bg-cover bg-center" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1598226038377-6e47963ecffe?auto=format&fit=crop&w=1200&q=80")' }}>
+            <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden relative shadow-md bg-cover bg-center" style={{ backgroundImage: 'url("https://image.pollinations.ai/prompt/child%20handwritten%20address%20book%20open%20on%20wooden%20table%2C%20colorful%20sticky%20notes%20and%20mini%20rolodex%20nearby%2C%20pencil%20and%20crayon%2C%20warm%20amber%20lamp%20light%2C%20top%20down%20flat%20lay%2C%2035mm%20film%20grain%2C%20nostalgic?width=1200&height=500&nologo=true")' }}>
               <div className="absolute inset-0 bg-gradient-to-br from-amber-700/10 to-stone-600/30" />
               <div className="absolute inset-0 opacity-[0.10]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.75\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundRepeat: 'repeat', backgroundSize: '180px' }} />
             </div>
