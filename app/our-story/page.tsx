@@ -7,6 +7,8 @@ export default function OurStoryPage() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
 
+  const navLinkClass = 'hover:text-stone-800 transition pb-0.5 border-b-2 border-transparent hover:border-[#C4531A]';
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
@@ -23,11 +25,11 @@ export default function OurStoryPage() {
             Ring Ring Club
           </button>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-500">
-            <button onClick={() => router.push('/landing')} className="hover:text-stone-800 transition">Home</button>
+            <button onClick={() => router.push('/landing')} className={navLinkClass}>Home</button>
             <button className="text-stone-900 font-bold border-b-2 border-[#C4531A] pb-0.5">Our (analog) story</button>
-            <button onClick={() => router.push('/landing#how')} className="hover:text-stone-800 transition">How It Works</button>
-            <button onClick={() => router.push('/landing#shop')} className="hover:text-stone-800 transition">The Ring Ring Shop</button>
-            <button onClick={() => router.push('/landing#pricing')} className="hover:text-stone-800 transition">Pricing</button>
+            <button onClick={() => router.push('/landing#how')} className={navLinkClass}>How It Works</button>
+            <button onClick={() => router.push('/landing#shop')} className={navLinkClass}>The Ring Ring Shop</button>
+            <button onClick={() => router.push('/landing#pricing')} className={navLinkClass}>Pricing</button>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/login')} className="text-stone-500 hover:text-stone-800 font-medium text-sm transition">Sign In</button>
@@ -277,9 +279,9 @@ export default function OurStoryPage() {
               <div className="text-white font-bold mb-4">The Club</div>
               <nav className="space-y-2">
                 <a href="/our-story" className="block hover:text-white transition">Our Analog Story</a>
-                <a href="/landing#how" className="block hover:text-white transition">How It Works</a>
-                <a href="/landing#shop" className="block hover:text-white transition">The Shop</a>
-                <a href="/landing#pricing" className="block hover:text-white transition">Pricing</a>
+                <a href="#" className="block hover:text-white transition">How It Works</a>
+                <a href="#" className="block hover:text-white transition">The Shop</a>
+                <a href="#" className="block hover:text-white transition">Pricing</a>
                 <a href="/community" className="block hover:text-white transition">Community</a>
               </nav>
             </div>

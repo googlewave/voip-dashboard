@@ -7,6 +7,10 @@ export default function LandingPage() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [annual, setAnnual] = useState(false);
+  const [activeNav, setActiveNav] = useState<'home' | 'how' | 'shop' | 'pricing'>('home');
+
+  const navLinkClass = (isActive: boolean) =>
+    `transition pb-0.5 border-b-2 ${isActive ? 'text-stone-900 border-[#C4531A] font-bold' : 'text-stone-500 border-transparent hover:text-stone-800 hover:border-[#C4531A]'}`;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -22,11 +26,43 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <div className="text-xl font-black text-stone-800 tracking-tight">Ring Ring Club</div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-500">
-            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-stone-800 transition">Home</button>
-            <button onClick={() => router.push('/our-story')} className="hover:text-stone-800 transition">Our (analog) story</button>
-            <button onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">How It Works</button>
-            <button onClick={() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">The Ring Ring Shop</button>
-            <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">Pricing</button>
+            <button
+              onClick={() => {
+                setActiveNav('home');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={navLinkClass(activeNav === 'home')}
+            >
+              Home
+            </button>
+            <button onClick={() => router.push('/our-story')} className={navLinkClass(false)}>Our (analog) story</button>
+            <button
+              onClick={() => {
+                setActiveNav('how');
+                document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={navLinkClass(activeNav === 'how')}
+            >
+              How It Works
+            </button>
+            <button
+              onClick={() => {
+                setActiveNav('shop');
+                document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={navLinkClass(activeNav === 'shop')}
+            >
+              The Ring Ring Shop
+            </button>
+            <button
+              onClick={() => {
+                setActiveNav('pricing');
+                document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className={navLinkClass(activeNav === 'pricing')}
+            >
+              Pricing
+            </button>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/login')} className="text-stone-500 hover:text-stone-800 font-medium text-sm transition">Sign In</button>
@@ -484,9 +520,9 @@ export default function LandingPage() {
               <div className="text-white font-bold mb-4">The Club</div>
               <nav aria-label="The Club" className="space-y-2">
                 <a href="/our-story" className="block hover:text-white transition">Our Analog Story</a>
-                <a href="/landing#how" className="block hover:text-white transition">How It Works</a>
-                <a href="/landing#shop" className="block hover:text-white transition">The Shop</a>
-                <a href="/landing#pricing" className="block hover:text-white transition">Pricing</a>
+                <a href="#" className="block hover:text-white transition">How It Works</a>
+                <a href="#" className="block hover:text-white transition">The Shop</a>
+                <a href="#" className="block hover:text-white transition">Pricing</a>
                 <a href="/community" className="block hover:text-white transition">Community</a>
               </nav>
             </div>
