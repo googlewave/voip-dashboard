@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { corsPreflight, jsonWithCors } from '@/lib/api-cors';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+
+export function OPTIONS() {
+  return corsPreflight();
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,14 +13,14 @@ export async function GET(req: NextRequest) {
     // Get user from session
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return jsonWithCors({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return jsonWithCors({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get pending invites sent by user
@@ -69,12 +74,12 @@ export async function GET(req: NextRequest) {
       };
     }) || [];
 
-    return NextResponse.json({
+    return jsonWithCors({
       sentInvites: sentInvites || [],
       friendships: friendshipsWithDetails,
     });
   } catch (error: any) {
     console.error('Error fetching friends:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonWithCors({ error: error.message }, { status: 500 });
   }
 }

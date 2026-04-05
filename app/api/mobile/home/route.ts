@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { corsPreflight, jsonWithCors } from '@/lib/api-cors';
 import { getMobileRequestUser } from '@/lib/mobile-auth';
+
+export function OPTIONS() {
+  return corsPreflight();
+}
 
 export async function GET(req: NextRequest) {
   const authUser = await getMobileRequestUser(req);
   if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return jsonWithCors({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const [profile, devices, contacts, friendshipCount] = await Promise.all([
@@ -74,7 +79,7 @@ export async function GET(req: NextRequest) {
     contactsByDeviceId.set(contact.deviceId ?? '', list);
   }
 
-  return NextResponse.json({
+  return jsonWithCors({
     profile: {
       id: profile?.id ?? authUser.id,
       email: profile?.email ?? authUser.email ?? '',

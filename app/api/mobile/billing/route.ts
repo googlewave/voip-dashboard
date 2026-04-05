@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
+import { corsPreflight, jsonWithCors } from '@/lib/api-cors';
 import { getStripe } from '@/lib/stripe';
 import { getMobileRequestUser } from '@/lib/mobile-auth';
+
+export function OPTIONS() {
+  return corsPreflight();
+}
 
 export async function GET(req: NextRequest) {
   const authUser = await getMobileRequestUser(req);
   if (!authUser) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return jsonWithCors({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const dbUser = await prisma.user.findUnique({
@@ -20,7 +25,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (!dbUser?.stripeCustomerId) {
-    return NextResponse.json({
+    return jsonWithCors({
       plan: dbUser?.plan ?? 'free',
       phoneNumber: dbUser?.twilioNumber ?? null,
       subscriptions: [],
@@ -42,7 +47,7 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  return NextResponse.json({
+  return jsonWithCors({
     plan: dbUser.plan,
     phoneNumber: dbUser.twilioNumber,
     subscriptions: subscriptions.data.map((sub) => {

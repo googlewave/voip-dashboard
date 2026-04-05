@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { corsPreflight, jsonWithCors } from '@/lib/api-cors';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+
+export function OPTIONS() {
+  return corsPreflight();
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,14 +14,14 @@ export async function POST(req: NextRequest) {
     // Get user from session
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return jsonWithCors({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return jsonWithCors({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Generate invite token
@@ -37,18 +42,18 @@ export async function POST(req: NextRequest) {
 
     if (createError) {
       console.error('Error creating invite:', createError);
-      return NextResponse.json({ error: 'Failed to create invite' }, { status: 500 });
+      return jsonWithCors({ error: 'Failed to create invite' }, { status: 500 });
     }
 
     const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/invite/${inviteToken}`;
 
-    return NextResponse.json({
+    return jsonWithCors({
       inviteToken,
       inviteUrl,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (error: any) {
     console.error('Error in create invite:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonWithCors({ error: error.message }, { status: 500 });
   }
 }
