@@ -20,11 +20,12 @@ export default function LandingPage() {
       {/* Sticky Nav */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-[#FAF7F2]/95 backdrop-blur-sm shadow-sm py-3' : 'bg-transparent py-5'}`}>
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
-          <div className="text-xl font-black text-stone-800 tracking-tight">Ring Ring</div>
+          <div className="text-xl font-black text-stone-800 tracking-tight">Ring Ring Club</div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-500">
-            <button onClick={() => document.getElementById('story')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">Our Story</button>
+            <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-stone-800 transition">Home</button>
+            <button onClick={() => document.getElementById('story')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">Our (analog) story</button>
             <button onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">How It Works</button>
-            <button onClick={() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">The Shop</button>
+            <button onClick={() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">The Ring Ring Shop</button>
             <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="hover:text-stone-800 transition">Pricing</button>
           </div>
           <div className="flex items-center gap-3">
@@ -44,9 +45,8 @@ export default function LandingPage() {
         </div>
         <div className="relative max-w-6xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 bg-amber-100 text-amber-800 text-xs font-semibold px-4 py-2 rounded-full mb-8 border border-amber-200 tracking-wide uppercase">
-              <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse" />
-              Built by parents, outside Philadelphia
+            <div className="inline-flex items-center bg-amber-100 text-amber-800 text-xs font-semibold px-4 py-2 rounded-full mb-8 border border-amber-200 tracking-wide uppercase">
+              Built by nostalgic, middle aged dads outside of Philly
             </div>
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-stone-900 mb-5 leading-[1.05] tracking-tight">
               Make the house<br />
@@ -57,7 +57,7 @@ export default function LandingPage() {
               A safe, screen-free home phone for kids.
             </p>
             <p className="text-stone-500 text-lg mb-10 leading-relaxed max-w-lg">
-              Kids calling each other again. No apps. No scrolling. No strangers. Just talking.
+              Kids calling each other again. No apps. No scrolling. No strangers. No spam. Just talking.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <button
@@ -84,15 +84,7 @@ export default function LandingPage() {
                 style={{ maxHeight: '500px', objectPosition: 'top' }}
               />
             </div>
-            <div className="absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-xl p-4 border border-stone-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-lg">📞</div>
-                <div>
-                  <p className="text-xs text-stone-400">Just now</p>
-                  <p className="text-sm font-bold text-stone-800">Emma called Grandma ✓</p>
-                </div>
-              </div>
-            </div>
+
           </div>
         </div>
       </section>
@@ -111,7 +103,7 @@ export default function LandingPage() {
                 num: '01',
                 icon: '🔌',
                 title: 'Plug it in',
-                body: 'The small Ring Ring Bridge connects to your router. It arrives pre-configured — no setup required on your end.',
+                body: 'The small Ring Ring Bridge connects to your router or mesh. It arrives pre-configured before it ships.',
                 color: 'bg-amber-50 border-amber-100',
                 numColor: 'text-amber-500',
               },
@@ -119,15 +111,15 @@ export default function LandingPage() {
                 num: '02',
                 icon: '👨‍👩‍👧',
                 title: 'Set your circle',
-                body: 'Only numbers you approve can call or be called. Everyone else is blocked — automatically, every time.',
+                body: 'Only numbers you approve can call or be called. Everyone else is blocked.',
                 color: 'bg-teal-50 border-teal-100',
                 numColor: 'text-teal-600',
               },
               {
                 num: '03',
                 icon: '📞',
-                title: 'Let them call',
-                body: 'Your child picks up the phone and calls their friends. Real conversations. No distractions.',
+                title: 'Let them call / answer',
+                body: 'Your child picks up the phone and calls their friends.',
                 color: 'bg-orange-50 border-orange-100',
                 numColor: 'text-[#C4531A]',
               },
@@ -147,25 +139,28 @@ export default function LandingPage() {
       <section id="story" className="py-24 px-6 bg-[#FAF7F2]">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-[#C4531A] font-semibold text-sm uppercase tracking-widest">The Philosophy</span>
-            <h2 className="text-4xl md:text-5xl font-black text-stone-900 mt-3 mb-6 leading-tight">This isn't really about a phone.</h2>
-            <p className="text-stone-600 text-xl leading-relaxed max-w-2xl mx-auto mb-4">
+            <span className="text-[#C4531A] font-semibold text-sm uppercase tracking-widest">The Catch</span>
+            <h2 className="text-4xl md:text-5xl font-black text-stone-900 mt-3 mb-4 leading-tight">This isn&apos;t really about a phone.</h2>
+            <p className="text-stone-600 text-xl leading-relaxed max-w-2xl mx-auto mb-2">
               A corded phone stays in the house, introducing natural, physical boundaries that restore the home as a sanctuary.
             </p>
-            <p className="text-stone-500 text-lg leading-relaxed max-w-2xl mx-auto mb-4">
-              It gives kids independence without the pressure of texting, apps, or late-night scrolling.
+            <p className="text-stone-500 text-lg leading-relaxed max-w-2xl mx-auto mb-2">
+              Our kids learn to have a conversation without having a face or screen attached, which leads them to listen deeper, pay attention to each other, and ask questions.
             </p>
             <p className="text-stone-500 text-lg leading-relaxed max-w-2xl mx-auto mb-2">
-              We know they'll have a smartphone eventually. We're just helping families start with something simpler.
+              It gives slightly older kids independence without the pressure of texting, apps, or late-night scrolling.
             </p>
-            <p className="text-stone-400 text-base italic">Also, it doesn't follow them into the bathroom.</p>
+            <p className="text-stone-500 text-lg leading-relaxed max-w-2xl mx-auto mb-2">
+              We know they&apos;ll have a smartphone eventually. We&apos;re just helping families start with something simpler.
+            </p>
+            <p className="text-stone-400 text-base italic">Also, it doesn&apos;t follow them into the bathroom.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
                 icon: '💬',
                 title: 'Real Conversation',
-                body: "The joy and independence of a focused call. Something a text can't replace.",
+                body: "The joy and independence of a focused call.",
                 bg: 'bg-amber-50 border-amber-100',
               },
               {
@@ -177,7 +172,7 @@ export default function LandingPage() {
               {
                 icon: '📴',
                 title: 'A Clear End',
-                body: 'When the handset goes down, the conversation is over. The nervous system gets a break.',
+                body: 'When the handset goes down, the conversation is over.',
                 bg: 'bg-orange-50 border-orange-100',
               },
             ].map((card) => (
@@ -195,12 +190,12 @@ export default function LandingPage() {
       {/* Beat 4 — The Moment Story */}
       <section className="py-28 px-6 bg-white">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-stone-400 text-sm uppercase tracking-widest font-semibold mb-12">4:30 PM. Somewhere in America.</p>
-          <div className="space-y-6 text-stone-800 text-2xl md:text-3xl font-black leading-relaxed">
+          <div className="space-y-6 text-stone-800 text-2xl md:text-3xl font-black leading-relaxed mb-12">
+            <p>It&apos;s 4:30pm.</p>
             <p>Homework is done.</p>
             <p>Your child picks up the phone</p>
             <p>and calls their friend</p>
-            <p>to coordinate tomorrow's outfit.</p>
+            <p>to coordinate tomorrow&apos;s outfit.</p>
           </div>
           <div className="mt-12 space-y-4 text-stone-400 text-lg font-medium">
             <p>No texting.</p>
@@ -224,23 +219,23 @@ export default function LandingPage() {
             <div className="bg-white rounded-3xl p-10 border-2 border-stone-100 hover:border-amber-200 hover:shadow-xl transition text-center">
               <div className="text-5xl mb-5">🛍️</div>
               <h3 className="text-xl font-black text-stone-900 mb-3">Pick a modern classic.</h3>
-              <p className="text-stone-500 text-sm leading-relaxed mb-6">Curated handsets ready to ring. Chosen for charm, simplicity, and that satisfying *click* when you hang up.</p>
+              <p className="text-stone-500 text-sm leading-relaxed mb-6">Curated handsets ready to ring.</p>
               <button
                 onClick={() => router.push('/buy')}
                 className="px-6 py-3 bg-[#C4531A] text-white text-sm font-bold rounded-full hover:bg-[#a84313] transition"
               >
-                Browse the Shop →
+                Browse the Ring Ring Shop →
               </button>
             </div>
             <div className="bg-white rounded-3xl p-10 border-2 border-stone-100 hover:border-teal-200 hover:shadow-xl transition text-center">
               <div className="text-5xl mb-5">📦</div>
               <h3 className="text-xl font-black text-stone-900 mb-3">Bring your own phone.</h3>
-              <p className="text-stone-500 text-sm leading-relaxed mb-6">A vintage rotary from your attic or a thrift store find. If it has an RJ11 jack, we can probably make it ring.</p>
+              <p className="text-stone-500 text-sm leading-relaxed mb-6">A vintage rotary from your attic or a thrift store find.</p>
               <button
                 onClick={() => router.push('/buy')}
                 className="px-6 py-3 bg-stone-800 text-white text-sm font-bold rounded-full hover:bg-stone-700 transition"
               >
-                Join with your Phone →
+                Join the Club with your Phone →
               </button>
             </div>
           </div>
@@ -289,7 +284,7 @@ export default function LandingPage() {
               {
                 icon: '⚡',
                 title: 'Quick Dial Shortcuts',
-                body: "Press 1 for Mom. Press 2 for Grandma. For younger kids who haven't mastered 10 digits yet.",
+                body: "For younger kids who haven't mastered dialing 10 digits yet. And for those who have, but need to call their bff asap.",
                 bg: 'bg-orange-50 border-orange-100',
               },
               {
@@ -306,11 +301,7 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-          <div className="mt-12 bg-stone-50 rounded-3xl p-8 border border-stone-100 max-w-3xl mx-auto text-center">
-            <p className="text-stone-500 text-sm leading-relaxed">
-              <strong className="text-stone-800">Radical Transparency Note:</strong> No magic. No cloud buzzwords. Just a small adapter (we call it the Ring Ring Bridge) that allows a real phone to work safely today. It connects to your router. We pre-configure it before it ships.
-            </p>
-          </div>
+
         </div>
       </section>
 
@@ -325,18 +316,26 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Annual toggle */}
-          <div className="flex items-center justify-center gap-4 mb-12">
-            <span className={`text-sm font-semibold ${!annual ? 'text-stone-900' : 'text-stone-400'}`}>Monthly</span>
-            <button
-              onClick={() => setAnnual(!annual)}
-              className={`relative w-14 h-7 rounded-full transition-colors ${annual ? 'bg-[#C4531A]' : 'bg-stone-300'}`}
-            >
-              <span className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${annual ? 'translate-x-8' : 'translate-x-1'}`} />
-            </button>
-            <span className={`text-sm font-semibold ${annual ? 'text-stone-900' : 'text-stone-400'}`}>
-              Annual <span className="text-[#C4531A] font-bold">Save 20%</span>
-            </span>
+          {/* Billing period toggle */}
+          <div className="flex items-center justify-center mb-12">
+            <div className="flex items-center bg-stone-100 rounded-full p-1 gap-1">
+              <button
+                onClick={() => setAnnual(false)}
+                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
+                  !annual ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setAnnual(true)}
+                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
+                  annual ? 'bg-[#C4531A] text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                Annual{' '}<span className={annual ? 'text-orange-200' : 'text-[#C4531A]'}>Save 10%</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
@@ -371,10 +370,10 @@ export default function LandingPage() {
               </div>
               <div className="text-sm font-bold text-orange-200 uppercase tracking-widest mb-2">Make It Ring Ring</div>
               <div className="flex items-end gap-1 mb-1">
-                <span className="text-6xl font-black text-white">{annual ? '$7.16' : '$8.95'}</span>
+                <span className="text-6xl font-black text-white">{annual ? '$8.06' : '$8.95'}</span>
                 <span className="text-orange-200 text-sm mb-3">/month</span>
               </div>
-              {annual && <p className="text-orange-200 text-xs mb-2">Billed annually — save $21/year</p>}
+              {annual && <p className="text-orange-200 text-xs mb-2">Billed annually — save ~$11/year</p>}
               <p className="text-orange-100 text-sm mb-8">Unlimited inbound/outbound calls to any US number.</p>
               <ul className="space-y-3 mb-8 text-sm text-orange-50">
                 {[
@@ -401,10 +400,14 @@ export default function LandingPage() {
               </button>
             </div>
           </div>
+
+          <div className="mt-10 bg-stone-50 rounded-3xl p-6 border border-stone-100 max-w-3xl mx-auto text-center">
+            <p className="text-stone-500 text-sm leading-relaxed">
+              <strong className="text-stone-800">Radical Transparency Note:</strong> No magic. No cloud buzzwords. Just a small adapter (we call it the Ring Ring Bridge) that allows a real phone to work safely today. It connects to your router. We pre-configure it before it ships.
+            </p>
+          </div>
         </div>
       </section>
-
-      {/* Beat 8 — Social Proof + Final CTA */}
       <section className="py-24 px-6 bg-white">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
@@ -413,17 +416,17 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-24">
             {[
               {
-                quote: "Best thing we've done for after-school time. She actually tells me about her day now.",
-                name: 'The Johnsons',
-                location: 'Devon, PA',
+                quote: "She actually asks to call her friend after dinner now. I had no idea that was still something kids would do voluntarily.",
+                name: 'The Murphys',
+                location: 'Havertown, PA',
               },
               {
-                quote: "My son called his friend to coordinate bikes. I didn't know that was still a thing kids could do.",
+                quote: "Our son called his friend to plan their bike route for Saturday. He just... called. On a phone. Like a normal person.",
                 name: 'The Garcias',
                 location: 'Wayne, PA',
               },
               {
-                quote: "It rang. He ran across the house to answer it. I almost cried.",
+                quote: "It rang. She sprinted from the other end of the house to answer it. I honestly teared up a little.",
                 name: 'The Williamses',
                 location: 'Berwyn, PA',
               },
@@ -458,7 +461,7 @@ export default function LandingPage() {
               >
                 Join the Club 🔔
               </button>
-              <p className="mt-5 text-stone-500 text-sm italic">Warning: May cause children to actually tell you about their day.</p>
+              <p className="mt-5 text-stone-500 text-sm italic">Warning: May cause parents to learn more about their children&apos;s day.</p>
             </div>
           </div>
         </div>
@@ -467,52 +470,60 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="bg-stone-900 text-stone-400 py-16 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row items-start justify-between gap-10 mb-12">
-            <div className="max-w-xs">
-              <div className="text-xl font-black text-white mb-3">Ring Ring</div>
-              <p className="text-sm text-stone-500 leading-relaxed">The safe, screen-free home phone for kids. Built by parents, outside Philadelphia.</p>
-              <p className="text-xs text-stone-600 mt-4">support@ringringphone.com</p>
+          {/* Brand blurb */}
+          <div className="mb-12">
+            <div className="text-xl font-black text-white mb-3">Ring Ring</div>
+            <p className="text-sm text-stone-500 leading-relaxed max-w-xs">The safe, screen-free home phone for kids. Built by parents, outside Philadelphia.</p>
+            <p className="text-xs text-stone-600 mt-4">support@ringringphone.com</p>
+          </div>
+
+          {/* 3-column link grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 text-sm mb-12">
+            {/* Column 1: The Club */}
+            <div>
+              <div className="text-white font-bold mb-4">The Club</div>
+              <nav aria-label="The Club" className="space-y-2">
+                <a href="https://ringringclub.com/our-story" className="block hover:text-white transition">Our Analog Story</a>
+                <a href="https://ringringclub.com/how-it-works" className="block hover:text-white transition">How It Works</a>
+                <a href="https://ringringclub.com/shop" className="block hover:text-white transition">The Shop</a>
+                <a href="https://ringringclub.com/pricing" className="block hover:text-white transition">Pricing</a>
+                <a href="https://ringringclub.com/community" className="block hover:text-white transition">Community</a>
+              </nav>
             </div>
-            <div className="flex flex-wrap gap-12 text-sm">
-              <div>
-                <div className="text-white font-bold mb-4">The Club</div>
-                <div className="space-y-2">
-                  <button onClick={() => document.getElementById('story')?.scrollIntoView({ behavior: 'smooth' })} className="block hover:text-white transition">Our Analog Story</button>
-                  <button onClick={() => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth' })} className="block hover:text-white transition">How It Works</button>
-                  <button onClick={() => document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' })} className="block hover:text-white transition">The Shop</button>
-                  <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="block hover:text-white transition">Pricing</button>
-                </div>
-              </div>
-              <div>
-                <div className="text-white font-bold mb-4">Support</div>
-                <div className="space-y-2">
-                  <button className="block hover:text-white transition">FAQ</button>
-                  <button className="block hover:text-white transition">Setup Guides</button>
-                  <button className="block hover:text-white transition">Contact Us</button>
-                  <button className="block hover:text-white transition">Invite a Neighbor</button>
-                </div>
-              </div>
-              <div>
-                <div className="text-white font-bold mb-4">Legal & Safety</div>
-                <div className="space-y-2">
-                  <button className="block hover:text-white transition">Terms of Service</button>
-                  <button className="block hover:text-white transition">Privacy Policy</button>
-                  <button className="block hover:text-white transition">Refund Policy</button>
-                  <button className="block hover:text-white transition">Emergency Calling (911)</button>
-                </div>
-              </div>
-              <div>
-                <div className="text-white font-bold mb-4">Account</div>
-                <div className="space-y-2">
-                  <button onClick={() => router.push('/login')} className="block hover:text-white transition">Log In</button>
-                  <button onClick={() => router.push('/buy')} className="block hover:text-white transition">Sign Up</button>
-                </div>
-              </div>
+
+            {/* Column 2: Support */}
+            <div>
+              <div className="text-white font-bold mb-4">Support</div>
+              <nav aria-label="Support" className="space-y-2">
+                <a href="https://ringringclub.com/faq" className="block hover:text-white transition">FAQs</a>
+                <a href="https://ringringclub.com/setup" className="block hover:text-white transition">Setup Guides</a>
+                <a href="https://ringringclub.com/contact" className="block hover:text-white transition">Contact Us</a>
+              </nav>
+            </div>
+
+            {/* Column 3: Account */}
+            <div>
+              <div className="text-white font-bold mb-4">Account</div>
+              <nav aria-label="Account" className="space-y-2">
+                <a href="https://ringringclub.com/login" className="block hover:text-white transition">Log In</a>
+                <a href="https://ringringclub.com/Join" className="block hover:text-white transition">Sign Up</a>
+                <a href="https://ringringclub.com/invite" className="block hover:text-white transition">Invite a Neighbor</a>
+              </nav>
             </div>
           </div>
+
+          {/* Bottom strip */}
           <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-600">
             <p>© 2026 Ring Ring. All rights reserved.</p>
-            <p className="text-stone-700 italic">Made by parents, for families. Outside Philadelphia.</p>
+            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <a href="https://ringringclub.com/terms" className="hover:text-stone-400 transition">Terms of Service</a>
+              <span aria-hidden="true">|</span>
+              <a href="https://ringringclub.com/privacy" className="hover:text-stone-400 transition">Privacy Policy</a>
+              <span aria-hidden="true">|</span>
+              <a href="https://ringringclub.com/e911" className="hover:text-stone-400 transition">E911 Disclosure</a>
+              <span aria-hidden="true">|</span>
+              <a href="https://ringringclub.com/refunds" className="hover:text-stone-400 transition">Refund Policy</a>
+            </nav>
           </div>
         </div>
       </footer>
