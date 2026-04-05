@@ -105,6 +105,39 @@ type DeviceDiagnosticsResponse = {
   devices: DeviceDiagnostic[];
 };
 
+type ProvisionValidationCheck = {
+  label: string;
+  passed: boolean;
+  details: string;
+};
+
+type ProvisionValidationResponse = {
+  status: number;
+  contentType: string | null;
+  durationMs: number;
+  preview: string;
+};
+
+type ProvisionValidationResult = {
+  deviceId: string;
+  deviceName: string;
+  adapterLabel: string;
+  provisioningFamily: string;
+  provisioningQueryType: string;
+  verdict: 'pass' | 'warn' | 'fail';
+  summary: string;
+  urls: {
+    autoUrl: string;
+    macUrl: string | null;
+  };
+  sipReady: boolean;
+  checks: ProvisionValidationCheck[];
+  responses: {
+    auto: ProvisionValidationResponse;
+    mac: ProvisionValidationResponse | null;
+  };
+};
+
 type Tab = 'users' | 'billing' | 'coupons' | 'system';
 
 function formatTimestamp(value: string | null) {
@@ -117,6 +150,12 @@ function healthBadgeClass(health: DeviceDiagnostic['health']) {
   if (health === 'warning') return 'bg-amber-100 text-amber-800';
   if (health === 'error') return 'bg-red-100 text-red-800';
   return 'bg-stone-100 text-stone-700';
+}
+
+function validationBadgeClass(verdict: ProvisionValidationResult['verdict']) {
+  if (verdict === 'pass') return 'bg-emerald-100 text-emerald-800';
+  if (verdict === 'warn') return 'bg-amber-100 text-amber-800';
+  return 'bg-red-100 text-red-800';
 }
 
 export default function AdminDashboard({
@@ -172,6 +211,8 @@ export default function AdminDashboard({
   const [deviceLineFixResult, setDeviceLineFixResult] = useState<string | null>(null);
   const [diagnostics, setDiagnostics] = useState<DeviceDiagnosticsResponse | null>(null);
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
+  const [provisionValidations, setProvisionValidations] = useState<Record<string, ProvisionValidationResult | null>>({});
+  const [provisionValidationErrors, setProvisionValidationErrors] = useState<Record<string, string>>({});
 
   // Coupons
   type CouponRow = {
@@ -556,6 +597,34 @@ export default function AdminDashboard({
       alert(err instanceof Error ? err.message : 'Failed to add device');
     }
     setLoading((prev) => ({ ...prev, add_device_for_user: false }));
+  };
+
+  const validateProvisioning = async (deviceId: string) => {
+    setLoading((prev) => ({ ...prev, [`validate_${deviceId}`]: true }));
+    setProvisionValidationErrors((prev) => ({ ...prev, [deviceId]: '' }));
+
+    try {
+      const res = await fetch('/api/admin/validate-provisioning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setProvisionValidationErrors((prev) => ({ ...prev, [deviceId]: data.error || 'Validation failed' }));
+        setProvisionValidations((prev) => ({ ...prev, [deviceId]: null }));
+      } else {
+        setProvisionValidations((prev) => ({ ...prev, [deviceId]: data }));
+      }
+    } catch (err: unknown) {
+      setProvisionValidationErrors((prev) => ({
+        ...prev,
+        [deviceId]: err instanceof Error ? err.message : 'Validation failed',
+      }));
+      setProvisionValidations((prev) => ({ ...prev, [deviceId]: null }));
+    }
+
+    setLoading((prev) => ({ ...prev, [`validate_${deviceId}`]: false }));
   };
 
   const deleteUser = async (userId: string, email: string) => {
@@ -943,6 +1012,100 @@ export default function AdminDashboard({
                                               </div>
                                             ))}
                                           </div>
+                                        </div>
+
+                                        <div className="bg-white rounded-2xl border border-stone-200 p-4 space-y-3">
+                                          <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                              <p className="text-xs font-bold text-stone-400 uppercase tracking-wider">Provision Validation</p>
+                                              <p className="text-sm text-stone-600 mt-1">Run a live check against this device&apos;s MAC-based provisioning URL. This is useful for SPA122, SPA2102, and SPA1001 pre-ship validation.</p>
+                                            </div>
+                                            <button
+                                              onClick={() => validateProvisioning(device.id)}
+                                              disabled={loading[`validate_${device.id}`] || !device.macAddress}
+                                              className="px-3 py-2 bg-stone-800 text-white font-bold rounded-lg hover:bg-stone-700 transition text-xs disabled:opacity-50"
+                                            >
+                                              {loading[`validate_${device.id}`] ? 'Validating...' : 'Validate Provisioning'}
+                                            </button>
+                                          </div>
+
+                                          {!device.macAddress && (
+                                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                              Add a MAC address first to validate live MAC-based provisioning.
+                                            </div>
+                                          )}
+
+                                          {provisionValidationErrors[device.id] && (
+                                            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                                              {provisionValidationErrors[device.id]}
+                                            </div>
+                                          )}
+
+                                          {provisionValidations[device.id] && (() => {
+                                            const validation = provisionValidations[device.id]!;
+                                            return (
+                                              <div className="space-y-3">
+                                                <div className="flex items-center justify-between gap-3 flex-wrap">
+                                                  <p className="text-sm font-bold text-stone-900">{validation.summary}</p>
+                                                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${validationBadgeClass(validation.verdict)}`}>
+                                                    {validation.verdict.toUpperCase()}
+                                                  </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                  <div>
+                                                    <p className="text-xs text-stone-400 mb-1">Auto URL</p>
+                                                    <p className="text-xs font-mono text-stone-800 bg-stone-50 px-3 py-2 rounded-lg border border-stone-200 break-all">{validation.urls.autoUrl}</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-xs text-stone-400 mb-1">MAC URL</p>
+                                                    <p className="text-xs font-mono text-stone-800 bg-stone-50 px-3 py-2 rounded-lg border border-stone-200 break-all">{validation.urls.macUrl || 'Not available'}</p>
+                                                  </div>
+                                                </div>
+
+                                                <div className="space-y-2">
+                                                  {validation.checks.map((check) => (
+                                                    <div key={check.label} className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
+                                                      <div className="flex items-center justify-between gap-3">
+                                                        <p className="text-sm font-bold text-stone-900">{check.label}</p>
+                                                        <span className={`text-xs font-bold ${check.passed ? 'text-emerald-700' : 'text-red-700'}`}>
+                                                          {check.passed ? 'PASS' : 'FAIL'}
+                                                        </span>
+                                                      </div>
+                                                      <p className="text-xs text-stone-500 mt-1">{check.details}</p>
+                                                    </div>
+                                                  ))}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                  <div>
+                                                    <p className="text-xs text-stone-400 mb-1">Auto Response</p>
+                                                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600 space-y-1">
+                                                      <p>Status: {validation.responses.auto.status}</p>
+                                                      <p>Content-Type: {validation.responses.auto.contentType || 'unknown'}</p>
+                                                      <p>Duration: {validation.responses.auto.durationMs}ms</p>
+                                                      <p className="font-mono break-all">{validation.responses.auto.preview}</p>
+                                                    </div>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-xs text-stone-400 mb-1">MAC Response</p>
+                                                    <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600 space-y-1">
+                                                      {validation.responses.mac ? (
+                                                        <>
+                                                          <p>Status: {validation.responses.mac.status}</p>
+                                                          <p>Content-Type: {validation.responses.mac.contentType || 'unknown'}</p>
+                                                          <p>Duration: {validation.responses.mac.durationMs}ms</p>
+                                                          <p className="font-mono break-all">{validation.responses.mac.preview}</p>
+                                                        </>
+                                                      ) : (
+                                                        <p>No MAC response captured.</p>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          })()}
                                         </div>
 
                                         {/* Trusted Contacts Manager */}
