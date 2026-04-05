@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getStripe } from '@/lib/stripe';
 
-export async function POST() {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-02-25.clover' });
+export async function POST(req: NextRequest) {
+  const stripe = getStripe();
 
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,12 +26,26 @@ export async function POST() {
     });
   }
 
+  const body = await req.json().catch(() => ({}));
+  const selectedPlan = body?.plan === 'annual' ? 'annual' : 'monthly';
+  const selectedPriceId = selectedPlan === 'annual'
+    ? process.env.STRIPE_PAID_PLAN_ANNUAL_PRICE_ID || process.env.STRIPE_PRICE_ID_ANNUAL
+    : process.env.STRIPE_PAID_PLAN_MONTHLY_PRICE_ID || process.env.STRIPE_PRICE_ID_MONTHLY || process.env.STRIPE_PRICE_ID;
+
+  if (!selectedPriceId) {
+    return NextResponse.json({ error: 'Missing Stripe price configuration' }, { status: 500 });
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000/';
+  const normalizedAppUrl = appUrl.endsWith('/') ? appUrl : `${appUrl}/`;
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}billing?success=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}billing?canceled=true`,
+    line_items: [{ price: selectedPriceId, quantity: 1 }],
+    success_url: `${normalizedAppUrl}billing?success=true`,
+    cancel_url: `${normalizedAppUrl}billing?canceled=true`,
+    metadata: { userId: user.id, plan: selectedPlan, source: 'billing-page' },
   });
 
   return NextResponse.json({ url: session.url });

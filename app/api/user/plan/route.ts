@@ -15,7 +15,7 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { plan } = await req.json();
-  if (!['free', 'paid'].includes(plan)) {
+  if (!['free', 'monthly', 'annual'].includes(plan)) {
     return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
   }
 
