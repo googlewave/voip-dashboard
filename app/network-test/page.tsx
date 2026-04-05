@@ -37,26 +37,54 @@ type ClientInfo = {
   online: boolean;
 };
 
+type Analysis = {
+  outcome: 'ready' | 'router-blocking' | 'wrong-url' | 'server-issue' | 'mixed-failure' | 'unknown';
+  severity: 'success' | 'warning' | 'error';
+  title: string;
+  summary: string;
+  actions: string[];
+};
+
+type PersistedResult = {
+  id: string;
+  createdAt: string;
+  outcome: string;
+  summary: string;
+};
+
 function resultTone(ok: boolean) {
   return ok
     ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
     : 'border-red-200 bg-red-50 text-red-900';
 }
 
+function analysisTone(severity: Analysis['severity']) {
+  if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (severity === 'warning') return 'border-amber-200 bg-amber-50 text-amber-900';
+  return 'border-red-200 bg-red-50 text-red-900';
+}
+
 export default function NetworkTestPage() {
   const searchParams = useSearchParams();
   const [url, setUrl] = useState('');
+  const [deviceId, setDeviceId] = useState('');
   const [clientInfo, setClientInfo] = useState<ClientInfo | null>(null);
   const [browserResult, setBrowserResult] = useState<BrowserTestResult | null>(null);
   const [serverResult, setServerResult] = useState<ServerTestResult | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  const [persistedResult, setPersistedResult] = useState<PersistedResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [browserOnline, setBrowserOnline] = useState(true);
 
   useEffect(() => {
     const initialUrl = searchParams.get('url');
+    const initialDeviceId = searchParams.get('deviceId');
     if (initialUrl) {
       setUrl(initialUrl);
+    }
+    if (initialDeviceId) {
+      setDeviceId(initialDeviceId);
     }
   }, [searchParams]);
 
@@ -80,6 +108,8 @@ export default function NetworkTestPage() {
     setError(null);
     setBrowserResult(null);
     setServerResult(null);
+    setAnalysis(null);
+    setPersistedResult(null);
 
     const normalizedUrl = new URL(url, window.location.origin).toString();
 
@@ -137,6 +167,25 @@ export default function NetworkTestPage() {
     const [browser, server] = await Promise.all([browserPromise, serverPromise]);
     setBrowserResult(browser);
     setServerResult(server);
+
+    const resultRes = await fetch('/api/network-test/result', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: deviceId || undefined,
+        provisioningUrl: normalizedUrl,
+        browser,
+        server,
+      }),
+    });
+    const resultData = await resultRes.json();
+    if (!resultRes.ok) {
+      setError(resultData.error || 'Failed to save network test result.');
+    } else {
+      setAnalysis(resultData.analysis);
+      setPersistedResult(resultData.result ?? null);
+    }
+
     setLoading(false);
   };
 
@@ -149,6 +198,9 @@ export default function NetworkTestPage() {
           <p className="mt-3 max-w-3xl text-sm text-stone-600">
             Run this page from the same Wi-Fi or wired network as the adapter. The browser test uses the customer&apos;s real network path, and the server test confirms the provisioning URL is valid on our side.
           </p>
+          {deviceId && (
+            <p className="mt-3 text-xs font-mono text-stone-500">Device ID: {deviceId}</p>
+          )}
 
           <div className="mt-8 grid gap-4 md:grid-cols-[1fr_auto]">
             <input
@@ -177,6 +229,31 @@ export default function NetworkTestPage() {
             Safe to run: this performs the same GET request the adapter would make. On first run it may also create SIP credentials if the device has not been provisioned yet.
           </div>
         </section>
+
+        {analysis && (
+          <section className={`rounded-[2rem] border-2 p-6 ${analysisTone(analysis.severity)}`}>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Outcome</p>
+                <h2 className="text-2xl font-black">{analysis.title}</h2>
+                <p className="mt-2 max-w-3xl text-sm opacity-90">{analysis.summary}</p>
+              </div>
+              {persistedResult && (
+                <div className="rounded-2xl bg-white/60 px-4 py-3 text-xs font-semibold">
+                  Saved {new Date(persistedResult.createdAt).toLocaleString()}
+                </div>
+              )}
+            </div>
+            <div className="mt-5 rounded-2xl bg-white/70 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-500">Recommended next actions</p>
+              <ul className="mt-3 space-y-2 text-sm text-stone-800">
+                {analysis.actions.map((action) => (
+                  <li key={action}>• {action}</li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
 
         {clientInfo && (
           <section className="grid gap-4 md:grid-cols-4">

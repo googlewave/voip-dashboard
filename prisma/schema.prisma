@@ -86,6 +86,33 @@ model DeviceRegistration {
   @@map("device_registrations")
 }
 
+model NetworkTestLog {
+  id                              String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId                          String   @map("user_id")
+  deviceId                        String   @map("device_id")
+  provisioningUrl                 String   @map("provisioning_url")
+  clientIp                        String?  @map("client_ip") @db.VarChar(45)
+  userAgent                       String?  @map("user_agent")
+  browserOk                       Boolean  @map("browser_ok")
+  browserStatus                   Int?     @map("browser_status")
+  browserLatencyMs                Int?     @map("browser_latency_ms")
+  browserLooksLikeProvisioning    Boolean  @default(false) @map("browser_looks_like_provisioning")
+  browserError                    String?  @map("browser_error")
+  serverOk                        Boolean  @map("server_ok")
+  serverStatus                    Int?     @map("server_status")
+  serverLatencyMs                 Int?     @map("server_latency_ms")
+  serverLooksLikeProvisioning     Boolean  @default(false) @map("server_looks_like_provisioning")
+  serverError                     String?  @map("server_error")
+  outcome                         String   @db.VarChar(50)
+  summary                         String
+  createdAt                       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([deviceId, createdAt], map: "idx_network_test_logs_device_created")
+  @@index([userId, createdAt], map: "idx_network_test_logs_user_created")
+  @@index([outcome], map: "idx_network_test_logs_outcome")
+  @@map("network_test_logs")
+}
+
 model SipCredential {
   id          String   @id(map: "SipCredential_pkey") @default(uuid())
   userId      String

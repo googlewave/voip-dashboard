@@ -74,6 +74,11 @@ type DeviceDiagnostic = {
     ipAddress: string | null;
     errorMessage: string | null;
   }>;
+  networkTest: {
+    createdAt: string;
+    outcome: string;
+    summary: string;
+  } | null;
   registration: {
     registeredAt: string | null;
     expiresAt: string | null;
@@ -1701,6 +1706,7 @@ export default function AdminDashboard({
                         <tr>
                           <th className="px-4 py-3">Device</th>
                           <th className="px-4 py-3">Provisioning</th>
+                          <th className="px-4 py-3">Network Test</th>
                           <th className="px-4 py-3">Registration</th>
                           <th className="px-4 py-3">Network</th>
                           <th className="px-4 py-3">Latest Error</th>
@@ -1726,6 +1732,17 @@ export default function AdminDashboard({
                               <p><strong>Last fetch:</strong> {formatTimestamp(device.lastProvisionedAt)}</p>
                               <p><strong>Config:</strong> {device.configVersion || '—'}</p>
                               <p><strong>SIP ready:</strong> {device.sipReady ? 'Yes' : 'No'}</p>
+                            </td>
+                            <td className="px-4 py-4 align-top text-stone-700">
+                              {device.networkTest ? (
+                                <>
+                                  <p><strong>Outcome:</strong> {device.networkTest.outcome}</p>
+                                  <p><strong>Checked:</strong> {formatTimestamp(device.networkTest.createdAt)}</p>
+                                  <p className="mt-1 text-xs text-stone-500">{device.networkTest.summary}</p>
+                                </>
+                              ) : (
+                                <p className="text-stone-400">No saved network test yet</p>
+                              )}
                             </td>
                             <td className="px-4 py-4 align-top text-stone-700">
                               <p><strong>Signal:</strong> {device.registration.status}</p>

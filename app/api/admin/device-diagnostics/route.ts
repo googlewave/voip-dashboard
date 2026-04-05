@@ -75,14 +75,24 @@ export async function GET() {
       })
     : [];
 
+  const networkTests = deviceIds.length
+    ? await prisma.networkTestLog.findMany({
+        where: { deviceId: { in: deviceIds } },
+        orderBy: { createdAt: 'desc' },
+        take: Math.max(deviceIds.length * 2, 20),
+      })
+    : [];
+
   const logsByDevice = groupByDeviceId(provisioningLogs);
   const registrationsByDevice = groupByDeviceId(registrations);
+  const networkTestsByDevice = groupByDeviceId(networkTests);
   const now = Date.now();
 
   const diagnostics = devices.map((device) => {
     const recentLogs = (logsByDevice.get(device.id) ?? []).slice(0, 3);
     const latestLog = recentLogs[0] ?? null;
     const latestRegistration = (registrationsByDevice.get(device.id) ?? [])[0] ?? null;
+    const latestNetworkTest = (networkTestsByDevice.get(device.id) ?? [])[0] ?? null;
     const activeRegistration = latestRegistration?.expiresAt
       ? latestRegistration.expiresAt.getTime() > now
       : device.isOnline;
@@ -127,6 +137,13 @@ export async function GET() {
         ipAddress: log.ipAddress,
         errorMessage: log.errorMessage,
       })),
+      networkTest: latestNetworkTest
+        ? {
+            createdAt: latestNetworkTest.createdAt.toISOString(),
+            outcome: latestNetworkTest.outcome,
+            summary: latestNetworkTest.summary,
+          }
+        : null,
       registration: latestRegistration
         ? {
             registeredAt: latestRegistration.registeredAt.toISOString(),

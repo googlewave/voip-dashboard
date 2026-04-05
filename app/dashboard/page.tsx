@@ -89,15 +89,79 @@ type Invoice = {
   pdf: string | null;
 };
 
+type NetworkTestAnalysis = {
+  outcome: 'ready' | 'router-blocking' | 'wrong-url' | 'server-issue' | 'mixed-failure' | 'unknown';
+  severity: 'success' | 'warning' | 'error';
+  title: string;
+  summary: string;
+  actions: string[];
+};
+
+type SavedNetworkTest = {
+  id: string;
+  deviceId: string;
+  provisioningUrl: string;
+  outcome: string;
+  summary: string;
+  createdAt: string;
+  clientIp: string | null;
+  analysis: NetworkTestAnalysis;
+};
+
+function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
+  if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
+  return 'border-amber-200 bg-amber-50 text-amber-900';
+}
+
 function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterType?: string | null }) {
   const [copied, setCopied] = useState(false);
+  const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
+  const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
   const typeParam = adapterType === 'linksys' ? '?type=linksys' : adapterType === 'grandstream' ? '?type=grandstream' : '';
   const url = typeof window !== 'undefined'
     ? `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
     : `/api/provision/auto/${deviceId}${typeParam}`;
   const networkTestUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/network-test?url=${encodeURIComponent(url)}`
-    : `/network-test?url=${encodeURIComponent(url)}`;
+    ? `${window.location.origin}/network-test?deviceId=${deviceId}&url=${encodeURIComponent(url)}`
+    : `/network-test?deviceId=${deviceId}&url=${encodeURIComponent(url)}`;
+
+  useEffect(() => {
+    let active = true;
+    setLoadingNetworkResult(true);
+    fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!active) return;
+        setNetworkResult(data.result ?? null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setNetworkResult(null);
+      })
+      .finally(() => {
+        if (active) setLoadingNetworkResult(false);
+      });
+
+    const onFocus = () => {
+      fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (active) setNetworkResult(data.result ?? null);
+        })
+        .catch(() => {
+          if (active) setNetworkResult(null);
+        });
+    };
+
+    window.addEventListener('focus', onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [deviceId]);
+
+  const networkReady = networkResult?.analysis.outcome === 'ready';
 
   const copy = () => {
     navigator.clipboard.writeText(url);
@@ -107,38 +171,79 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-sm font-bold text-stone-700 mb-2">Your provisioning URL</p>
+      <div className={`rounded-2xl border p-4 ${networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 1</p>
+            <h4 className="text-lg font-black">Validate this router first</h4>
+            <p className="mt-1 text-sm opacity-80">
+              Run the network test on the same Wi-Fi or LAN as the adapter before you continue with provisioning.
+            </p>
+          </div>
+          <a
+            href={networkTestUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center rounded-full bg-white/80 px-4 py-2 text-xs font-black text-stone-900 hover:bg-white transition"
+          >
+            Open Network Test
+          </a>
+        </div>
+
+        <div className="mt-4 rounded-2xl bg-white/70 px-4 py-3">
+          {loadingNetworkResult ? (
+            <p className="text-sm">Checking latest network test result…</p>
+          ) : networkResult ? (
+            <div className="space-y-2">
+              <p className="text-sm font-black">{networkResult.analysis.title}</p>
+              <p className="text-sm">{networkResult.analysis.summary}</p>
+              <p className="text-xs opacity-70">Last checked {new Date(networkResult.createdAt).toLocaleString()}</p>
+              <ul className="space-y-1 text-sm">
+                {networkResult.analysis.actions.map((action) => (
+                  <li key={action}>• {action}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-black">Network test required before setup</p>
+              <p className="text-sm">Open the network test first. If it passes, come back here and continue with the provisioning steps below.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 2</p>
+            <p className="text-sm font-bold text-stone-700 mb-2">Your provisioning URL</p>
+          </div>
+          {!networkReady && (
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 1 first</span>
+          )}
+        </div>
         <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
           <code className="flex-1 text-xs text-stone-700 break-all font-mono">{url}</code>
           <button
             onClick={copy}
+            disabled={!networkReady}
             className="shrink-0 px-3 py-1.5 bg-[#C4531A] text-white text-xs font-bold rounded-lg hover:bg-[#a84313] transition"
           >
             {copied ? '✓ Copied' : 'Copy'}
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <a
-            href={networkTestUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-200 transition"
-          >
-            Run Network Test On This Router
-          </a>
-          <span className="text-xs text-stone-500">Open this from the same Wi-Fi or LAN as the adapter.</span>
-        </div>
+        {!networkReady && <p className="mt-3 text-xs text-stone-500">The copy button unlocks after a passing network test so you validate the router before provisioning.</p>}
       </div>
       <ol className="space-y-3">
         {[
-          { n: '1', text: 'Find your adapter\'s local IP — it\'s usually printed on the bottom label, or check your router\'s device list.' },
-          { n: '2', text: 'Open a browser and go to http://[adapter-ip] to access the web interface.' },
-          { n: '3', text: 'Log in (default credentials are on the label — usually admin / admin).' },
-          { n: '4', text: 'Find the Provisioning or Auto Provision section (may be under Advanced Settings).' },
-          { n: '5', text: 'Paste the URL above into the Config Server Path field.' },
-          { n: '6', text: 'Click Save & Apply. The adapter will reboot and auto-configure itself — takes about 60 seconds.' },
-          { n: '7', text: 'Pick up the phone — you should hear a dial tone. You\u2019re live!' },
+          { n: '3', text: 'Find your adapter\'s local IP — it\'s usually printed on the bottom label, or check your router\'s device list.' },
+          { n: '4', text: 'Open a browser and go to http://[adapter-ip] to access the web interface.' },
+          { n: '5', text: 'Log in (default credentials are on the label — usually admin / admin).' },
+          { n: '6', text: 'Find the Provisioning or Auto Provision section (may be under Advanced Settings).' },
+          { n: '7', text: 'Paste the URL above into the Config Server Path field.' },
+          { n: '8', text: 'Click Save & Apply. The adapter will reboot and auto-configure itself — takes about 60 seconds.' },
+          { n: '9', text: 'Pick up the phone — you should hear a dial tone. You\u2019re live!' },
         ].map(({ n, text }) => (
           <li key={n} className="flex gap-3">
             <span className="w-6 h-6 rounded-full bg-stone-800 text-white font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
