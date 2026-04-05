@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
+import { getProvisioningFamily } from '@/lib/voip/adapters';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ deviceId: string }> }) {
   const { deviceId } = await params;
@@ -19,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ deviceI
     sipServer: device.sipDomain,
     sipUsername: device.sipUsername,
     sipPassword: device.sipPassword,
-    instructions: device.adapterType === 'grandstream'
+    instructions: getProvisioningFamily(device.adapterType) === 'grandstream'
       ? [
           `Open browser → http://${device.adapterIp || '192.168.x.x'}`,
           'Login with admin / admin',

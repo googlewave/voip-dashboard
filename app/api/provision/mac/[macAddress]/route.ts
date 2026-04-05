@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { escapeXml } from '@/lib/voip/xml';
+import { getProvisioningFamily, getProvisioningQueryType } from '@/lib/voip/adapters';
 
 const DEFAULT_PROVISION_INTERVAL_MINUTES = 5;
 
@@ -192,11 +193,12 @@ export async function GET(
     }
 
     // Generate config directly (faster than internal fetch)
-    const deviceType = device.adapterType || 'grandstream';
+    const provisioningFamily = getProvisioningFamily(device.adapterType);
+    const provisioningQueryType = getProvisioningQueryType(device.adapterType);
     console.log(`📡 MAC provisioning: ${formattedMac} → device ${device.id} (${device.name})`);
 
     // Generate Grandstream config directly
-    if (deviceType === 'grandstream') {
+    if (provisioningFamily === 'grandstream') {
       const contacts: ProvisionContact[] = await prisma.contact.findMany({
         where: {
           OR: [{ deviceId: device.id }, { userId: device.userId }],
@@ -221,7 +223,7 @@ export async function GET(
 
     // Fallback to internal fetch for other device types
     const provisionUrl = new URL(
-      `/api/provision/auto/${device.id}?type=${deviceType}`,
+      `/api/provision/auto/${device.id}?type=${provisioningQueryType}`,
       req.nextUrl.origin
     );
     const configResponse = await fetch(provisionUrl.toString());

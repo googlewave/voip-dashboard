@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { ADAPTER_OPTIONS, getAdapterLabel, getDefaultAdapterType, getProvisioningQueryType } from '@/lib/voip/adapters';
+import type { SupportedAdapterType } from '@/lib/voip/adapters';
 
 type Device = {
   id: string;
@@ -49,7 +51,7 @@ export default function AdminClient({
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showAddDevice, setShowAddDevice] = useState<string | null>(null);
-  const [newDevice, setNewDevice] = useState({ name: '', adapterType: 'linksys', macAddress: '' });
+  const [newDevice, setNewDevice] = useState({ name: '', adapterType: getDefaultAdapterType(), macAddress: '' });
   const [addingDevice, setAddingDevice] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [expandedDevice, setExpandedDevice] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export default function AdminClient({
   };
 
   const copyProvisionUrl = (deviceId: string, adapterType: string | null) => {
-    const typeParam = adapterType === 'grandstream' ? 'grandstream' : 'linksys';
+    const typeParam = getProvisioningQueryType(adapterType);
     const url = `${window.location.origin}/api/provision/auto/${deviceId}?type=${typeParam}`;
     navigator.clipboard.writeText(url);
     setCopiedId(deviceId);
@@ -164,7 +166,7 @@ export default function AdminClient({
   };
 
   const addDevice = async (userId: string) => {
-    if (!newDevice.name.trim()) return;
+    if (!newDevice.name.trim() || !newDevice.macAddress.trim()) return;
     setAddingDevice(true);
     try {
       const res = await fetch('/api/devices/create', {
@@ -175,7 +177,7 @@ export default function AdminClient({
       const data = await res.json();
       if (res.ok && data.device) {
         setDevices((prev) => [...prev, data.device]);
-        setNewDevice({ name: '', adapterType: 'linksys', macAddress: '' });
+        setNewDevice({ name: '', adapterType: getDefaultAdapterType(), macAddress: '' });
         setShowAddDevice(null);
       } else {
         alert(data.error ?? 'Failed');
@@ -570,16 +572,16 @@ export default function AdminClient({
                           <label className="text-xs text-slate-400 mb-1 block">Type</label>
                           <select
                             value={newDevice.adapterType}
-                            onChange={(e) => setNewDevice((prev) => ({ ...prev, adapterType: e.target.value }))}
+                            onChange={(e) => setNewDevice((prev) => ({ ...prev, adapterType: e.target.value as SupportedAdapterType }))}
                             className="bg-slate-700 text-white text-sm rounded px-3 py-2 border border-slate-600 focus:outline-none"
                           >
-                            <option value="linksys">Linksys SPA2102</option>
-                            <option value="grandstream">Grandstream HT801</option>
-                            <option value="other">Other</option>
+                            {ADAPTER_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
                           </select>
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 mb-1 block">MAC Address <span className="text-slate-500">(optional)</span></label>
+                          <label className="text-xs text-slate-400 mb-1 block">MAC Address *</label>
                           <input
                             type="text"
                             placeholder="e.g. C0:74:AD:12:34:56"
@@ -600,7 +602,7 @@ export default function AdminClient({
                         </div>
                         <button
                           onClick={() => addDevice(u.id)}
-                          disabled={addingDevice || !newDevice.name.trim()}
+                          disabled={addingDevice || !newDevice.name.trim() || !newDevice.macAddress.trim()}
                           className="text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-4 py-2 rounded text-white font-medium transition"
                         >
                           {addingDevice ? 'Adding...' : 'Add'}
@@ -637,7 +639,7 @@ export default function AdminClient({
                                   <div>
                                     <div className="text-sm font-medium">
                                       {d.name}{' '}
-                                      <span className="text-slate-400 text-xs">({d.adapterType ?? 'unknown'})</span>
+                                      <span className="text-slate-400 text-xs">({getAdapterLabel(d.adapterType)})</span>
                                     </div>
                                     <div className="text-xs text-slate-400 mt-0.5">
                                       IP: {d.adapterIp ?? 'none'} • SIP: {d.sipUsername ?? 'not provisioned'} •{' '}

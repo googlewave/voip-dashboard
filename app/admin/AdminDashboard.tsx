@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
+import { ADAPTER_OPTIONS, getAdapterLabel, getDefaultAdapterType, getProvisioningQueryType, normalizeAdapterType } from '@/lib/voip/adapters';
+import type { SupportedAdapterType } from '@/lib/voip/adapters';
 
 type User = {
   id: string;
@@ -138,7 +140,7 @@ export default function AdminDashboard({
   const [expandedDeviceId, setExpandedDeviceId] = useState<string | null>(null);
   const [showEditDeviceModal, setShowEditDeviceModal] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [editDeviceForm, setEditDeviceForm] = useState({ name: '', macAddress: '', adapterType: '', phoneNumber: '' });
+  const [editDeviceForm, setEditDeviceForm] = useState({ name: '', macAddress: '', adapterType: getDefaultAdapterType(), phoneNumber: '' });
 
   // User Management
   const [showAddUser, setShowAddUser] = useState(false);
@@ -251,7 +253,7 @@ export default function AdminDashboard({
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [showAddDeviceModal, setShowAddDeviceModal] = useState(false);
   const [addDeviceUserId, setAddDeviceUserId] = useState<string | null>(null);
-  const [addDeviceForm, setAddDeviceForm] = useState({ name: '', adapterType: 'grandstream', macAddress: '', phoneNumber: '' });
+  const [addDeviceForm, setAddDeviceForm] = useState({ name: '', adapterType: getDefaultAdapterType(), macAddress: '', phoneNumber: '' });
 
   const refreshData = async () => {
     const res = await fetch('/api/admin/data');
@@ -385,7 +387,7 @@ export default function AdminDashboard({
 
 
   const copyProvisionUrl = (deviceId: string, adapterType: string) => {
-    const typeParam = adapterType === 'grandstream' ? 'grandstream' : 'linksys';
+    const typeParam = getProvisioningQueryType(adapterType);
     const url = `${window.location.origin}/api/provision/auto/${deviceId}?type=${typeParam}`;
     navigator.clipboard.writeText(url);
     setCopiedId(deviceId);
@@ -488,7 +490,7 @@ export default function AdminDashboard({
     setEditDeviceForm({
       name: device.name,
       macAddress: device.macAddress || '',
-      adapterType: device.adapterType || '',
+      adapterType: normalizeAdapterType(device.adapterType) || getDefaultAdapterType(),
       phoneNumber: device.phoneNumber || '',
     });
     setShowEditDeviceModal(true);
@@ -527,7 +529,7 @@ export default function AdminDashboard({
   };
 
   const addDeviceForUser = async () => {
-    if (!addDeviceUserId || !addDeviceForm.name.trim()) return;
+    if (!addDeviceUserId || !addDeviceForm.name.trim() || !addDeviceForm.macAddress.trim() || !normalizeAdapterType(addDeviceForm.adapterType)) return;
     setLoading((prev) => ({ ...prev, add_device_for_user: true }));
     try {
       const res = await fetch('/api/devices/create', {
@@ -545,7 +547,7 @@ export default function AdminDashboard({
       if (res.ok) {
         setShowAddDeviceModal(false);
         setAddDeviceUserId(null);
-        setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '', phoneNumber: '' });
+        setAddDeviceForm({ name: '', adapterType: getDefaultAdapterType(), macAddress: '', phoneNumber: '' });
         await refreshData();
       } else {
         alert(data.error || 'Failed to add device');
@@ -816,9 +818,7 @@ export default function AdminDashboard({
                               {userDeviceList.map((device) => {
                                 const deviceContacts = userContactList.filter((c) => c.deviceId === device.id);
                                 const isDeviceExpanded = expandedDeviceId === device.id;
-                                const adapterLabel = device.adapterType === 'grandstream' ? 'Grandstream HT801'
-                                  : device.adapterType === 'linksys' ? 'Linksys SPA2102'
-                                  : device.adapterType || 'Unknown';
+                                const adapterLabel = getAdapterLabel(device.adapterType);
 
                                 return (
                                   <div key={device.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden">
@@ -866,7 +866,7 @@ export default function AdminDashboard({
                                         {device.sipUsername ? (
                                           <>
                                             <button
-                                              onClick={() => copyProvisionUrl(device.id, device.adapterType || 'linksys')}
+                                              onClick={() => copyProvisionUrl(device.id, device.adapterType || getDefaultAdapterType())}
                                               className="px-2.5 py-1.5 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 transition text-xs"
                                             >
                                               {copiedId === device.id ? '✓ Copied' : 'Copy URL'}
@@ -1170,12 +1170,12 @@ export default function AdminDashboard({
                   <label className="block text-sm font-bold text-stone-900 mb-2">Adapter Type</label>
                   <select
                     value={addDeviceForm.adapterType}
-                    onChange={(e) => setAddDeviceForm({ ...addDeviceForm, adapterType: e.target.value })}
+                    onChange={(e) => setAddDeviceForm({ ...addDeviceForm, adapterType: e.target.value as SupportedAdapterType })}
                     className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
                   >
-                    <option value="grandstream">Grandstream HT801</option>
-                    <option value="linksys">Linksys SPA2102</option>
-                    <option value="other">Other</option>
+                    {ADAPTER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1199,18 +1199,27 @@ export default function AdminDashboard({
                   })()}
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-stone-900 mb-2">MAC Address <span className="font-normal text-stone-400">(optional)</span></label>
+                  <label className="block text-sm font-bold text-stone-900 mb-2">MAC Address *</label>
                   <input
                     className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none font-mono"
-                    placeholder="00:0B:82:XX:XX:XX"
+                    placeholder="C0:74:AD:12:34:56"
                     value={addDeviceForm.macAddress}
-                    onChange={(e) => setAddDeviceForm({ ...addDeviceForm, macAddress: e.target.value })}
+                    onChange={(e) => {
+                      let val = e.target.value.toUpperCase().replace(/[^A-F0-9:]/g, '');
+                      const hex = val.replace(/:/g, '');
+                      if (hex.length > 2 && !val.includes(':')) {
+                        val = hex.match(/.{1,2}/g)?.join(':') || val;
+                      }
+                      if (val.length <= 17) {
+                        setAddDeviceForm({ ...addDeviceForm, macAddress: val });
+                      }
+                    }}
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={addDeviceForUser}
-                    disabled={loading.add_device_for_user || !addDeviceForm.name.trim()}
+                    disabled={loading.add_device_for_user || !addDeviceForm.name.trim() || !addDeviceForm.macAddress.trim() || !normalizeAdapterType(addDeviceForm.adapterType)}
                     className="flex-1 px-6 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50"
                   >
                     {loading.add_device_for_user ? 'Adding...' : 'Add Device'}
@@ -1219,7 +1228,7 @@ export default function AdminDashboard({
                     onClick={() => {
                       setShowAddDeviceModal(false);
                       setAddDeviceUserId(null);
-                      setAddDeviceForm({ name: '', adapterType: 'grandstream', macAddress: '', phoneNumber: '' });
+                      setAddDeviceForm({ name: '', adapterType: getDefaultAdapterType(), macAddress: '', phoneNumber: '' });
                     }}
                     className="px-6 py-3 bg-stone-100 text-stone-700 font-bold rounded-xl hover:bg-stone-200 transition"
                   >
@@ -1819,12 +1828,12 @@ export default function AdminDashboard({
                   <label className="text-sm font-bold text-stone-700 mb-2 block">Device Type</label>
                   <select
                     value={editDeviceForm.adapterType}
-                    onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, adapterType: e.target.value }))}
+                    onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, adapterType: e.target.value as SupportedAdapterType }))}
                     className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-blue-500"
                   >
-                    <option value="linksys">Linksys SPA2102</option>
-                    <option value="grandstream">Grandstream HT801</option>
-                    <option value="other">Other</option>
+                    {ADAPTER_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -1843,7 +1852,7 @@ export default function AdminDashboard({
 
                 {/* MAC Address */}
                 <div>
-                  <label className="text-sm font-bold text-stone-700 mb-2 block">MAC Address <span className="text-stone-400">(optional)</span></label>
+                  <label className="text-sm font-bold text-stone-700 mb-2 block">MAC Address *</label>
                   <input
                     type="text"
                     value={editDeviceForm.macAddress}
@@ -1886,7 +1895,7 @@ export default function AdminDashboard({
                 <div className="flex gap-3">
                   <button
                     onClick={saveDevice}
-                    disabled={loading[`edit_${editingDevice.id}`] || !editDeviceForm.name.trim()}
+                    disabled={loading[`edit_${editingDevice.id}`] || !editDeviceForm.name.trim() || !editDeviceForm.macAddress.trim() || !normalizeAdapterType(editDeviceForm.adapterType)}
                     className="flex-1 px-4 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition disabled:opacity-50"
                   >
                     {loading[`edit_${editingDevice.id}`] ? 'Saving...' : 'Save Changes'}

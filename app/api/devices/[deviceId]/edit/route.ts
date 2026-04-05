@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeAdapterType } from '@/lib/voip/adapters';
 
 export async function POST(
   req: NextRequest,
@@ -8,6 +9,7 @@ export async function POST(
   try {
     const { deviceId } = await params;
     const { name, macAddress, adapterType, phoneNumber } = await req.json();
+    const normalizedAdapterType = normalizeAdapterType(adapterType);
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -16,7 +18,21 @@ export async function POST(
       );
     }
 
-    // Normalize MAC address if provided
+    if (!normalizedAdapterType) {
+      return NextResponse.json(
+        { error: 'A supported adapter type is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!macAddress?.trim()) {
+      return NextResponse.json(
+        { error: 'MAC address is required' },
+        { status: 400 }
+      );
+    }
+
+    // Normalize MAC address
     let normalizedMac: string | undefined;
     if (macAddress && macAddress.trim()) {
       const hex = macAddress.replace(/[^a-fA-F0-9]/g, '').toUpperCase();
@@ -52,7 +68,7 @@ export async function POST(
       where: { id: deviceId },
       data: {
         name: name.trim(),
-        adapterType: adapterType || null,
+        adapterType: normalizedAdapterType,
         macAddress: normalizedMac,
         phoneNumber: phoneNumber?.trim() || null,
       },

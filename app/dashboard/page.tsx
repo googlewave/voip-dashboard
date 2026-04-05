@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import FriendsTab from './FriendsTab';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
+import { getAdapterLabel, getProvisioningQueryType } from '@/lib/voip/adapters';
 
 interface Contact {
   id: string;
@@ -178,10 +179,7 @@ function SetupGuidePanel({
   macAddress?: string | null;
   phoneNumber?: string | null;
 }) {
-  const adapterLabel =
-    adapterType === 'grandstream' ? 'Grandstream HT801'
-    : adapterType === 'linksys' ? 'Linksys SPA2102'
-    : 'your adapter';
+  const adapterLabel = adapterType ? getAdapterLabel(adapterType) : 'your adapter';
 
   const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
   const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
@@ -189,7 +187,7 @@ function SetupGuidePanel({
   const [networkCheckError, setNetworkCheckError] = useState<string | null>(null);
 
   const normalizedMac = macAddress?.replace(/[^a-fA-F0-9]/g, '').toLowerCase() ?? '';
-  const typeParam = adapterType === 'linksys' ? '?type=linksys' : adapterType === 'grandstream' ? '?type=grandstream' : '';
+  const typeParam = adapterType ? `?type=${getProvisioningQueryType(adapterType)}` : '';
   const provisioningUrl = typeof window !== 'undefined'
     ? normalizedMac
       ? `${window.location.origin}/api/provision/mac/${normalizedMac}`

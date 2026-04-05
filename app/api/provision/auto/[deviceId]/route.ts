@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { escapeXml } from '@/lib/voip/xml';
 import { ensureTwilioSetup, createSipCredentials } from '@/lib/twilio-setup';
+import { getProvisioningFamily } from '@/lib/voip/adapters';
 
 const CONFIG_VERSION = '1.0.0';
 
@@ -119,7 +120,6 @@ export async function GET(
         provisioningStatus: 'success',
         configVersion: CONFIG_VERSION,
         lastSeenIp: ipAddress,
-        adapterType: deviceType,
       },
     });
 
@@ -205,6 +205,7 @@ function generateConfig(
   device: any,
   contacts: any[]
 ): string {
+  const provisioningFamily = device.adapterType ? getProvisioningFamily(device.adapterType) : (deviceType === 'grandstream' ? 'grandstream' : 'spa');
   const sipDomain = (device.sipDomain || process.env.TWILIO_SIP_DOMAIN!).replace(/:(\d+)$/, '');
   const sipDomainWithPort = `${sipDomain}:5060`;
   const displayName = device.name || device.sipUsername;
@@ -218,7 +219,7 @@ function generateConfig(
   
   let dialPlan = '([2-9]xxxxxxxxx|1[2-9]xxxxxxxxx|011x+|xxxx+|911|933)';;
 
-  if (deviceType === 'grandstream') {
+  if (provisioningFamily === 'grandstream') {
     return generateGrandstreamConfig(device, contacts, sipDomainWithPort, displayName, dialPlan, sipDomain);
   } else {
     return generateLinksysConfig(device, contacts, sipDomainWithPort, displayName, dialPlan, sipDomain);
