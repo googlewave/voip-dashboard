@@ -2010,7 +2010,7 @@ export default function AdminDashboard({
                     value={editDeviceForm.phoneNumber}
                     onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, phoneNumber: formatPhoneInput(e.target.value) }))}
                     className={`w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 focus:outline-none focus:border-blue-500 font-mono ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'border-stone-200' : 'border-red-300'}`}
-                    placeholder="(610) 854-9109"
+                    placeholder="(555) 010-1234"
                   />
                   <p className={`text-xs mt-1 ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'text-stone-400' : 'text-red-600'}`}>{getPhoneInputHint(editDeviceForm.phoneNumber, "Leave blank to remove the line. We'll format the number for you.")}</p>
                 </div>

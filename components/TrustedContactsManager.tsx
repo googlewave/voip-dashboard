@@ -223,7 +223,7 @@ export default function TrustedContactsManager({
                 type="tel"
                 inputMode="tel"
                 className={`w-full px-4 py-3 rounded-xl border bg-white focus:border-[#C4531A] outline-none text-sm font-mono text-stone-900 placeholder:text-stone-400 ${isPhoneInputValid(form.phone) ? 'border-amber-200' : 'border-red-300'}`}
-                placeholder="(610) 854-9109"
+                placeholder="(555) 010-1234"
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: formatPhoneInput(e.target.value) }))}
                 onKeyDown={(e) => e.key === 'Enter' && addContact()}

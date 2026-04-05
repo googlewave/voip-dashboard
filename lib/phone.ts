@@ -98,7 +98,7 @@ export function getPhoneInputHint(raw: string | null | undefined, emptyHint: str
     return 'Looks good.';
   }
 
-  return 'Enter a 10-digit number, like (610) 854-9109.';
+  return 'Enter a 10-digit number, like (555) 010-1234.';
 }
 
 export function formatAreaCodeInput(raw: string | null | undefined): string {

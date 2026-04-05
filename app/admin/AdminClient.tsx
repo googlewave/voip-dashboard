@@ -762,7 +762,7 @@ export default function AdminClient({
                                     <input
                                       type="tel"
                                       inputMode="tel"
-                                      placeholder="(610) 854-9109"
+                                      placeholder="(555) 010-1234"
                                       value={nc.phone}
                                       onChange={(e) => setNewContact((prev) => ({ ...prev, [d.id]: { ...nc, phone: formatPhoneInput(e.target.value) } }))}
                                       className="bg-slate-700 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-40"
