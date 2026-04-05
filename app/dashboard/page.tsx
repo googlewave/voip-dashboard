@@ -116,13 +116,76 @@ type NetworkTestProbe = {
   error?: string;
 };
 
+type SetupDeviceOption = {
+  id: string;
+  name: string;
+  adapterType: string | null;
+  phoneNumber: string | null;
+};
+
 function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
   if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
   if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
   return 'border-amber-200 bg-amber-50 text-amber-900';
 }
 
-function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterType?: string | null }) {
+function getParentFacingNetworkCopy(analysis: NetworkTestAnalysis) {
+  if (analysis.outcome === 'ready') {
+    return {
+      title: 'You are ready for setup',
+      summary: 'Your setup link is working on your home network. You can continue below.',
+    };
+  }
+
+  if (analysis.outcome === 'wrong-url') {
+    return {
+      title: 'This setup link does not look right yet',
+      summary: 'The link opened, but it did not return the setup file we expected. Double-check that you picked the right phone below.',
+    };
+  }
+
+  if (analysis.outcome === 'router-blocking') {
+    return {
+      title: 'Your router is getting in the way',
+      summary: 'Our system is ready, but your home network blocked or changed the request. Try the check again after turning off filtering or guest Wi-Fi.',
+    };
+  }
+
+  if (analysis.outcome === 'server-issue') {
+    return {
+      title: 'We need to check something on our side',
+      summary: 'Your browser reached the link, but our backend validation did not fully pass. Please contact us and we can finish the setup with you.',
+    };
+  }
+
+  if (analysis.outcome === 'mixed-failure') {
+    return {
+      title: 'Setup check failed',
+      summary: 'We could not confirm the link from your side or ours. Please rerun the check once, then contact us if it still fails.',
+    };
+  }
+
+  return {
+    title: 'Setup check needs another try',
+    summary: 'We could not clearly confirm the result. Please run the check once more.',
+  };
+}
+
+function SetupGuidePanel({
+  deviceId,
+  deviceName,
+  adapterType,
+  phoneNumber,
+  setupDevices,
+  onSelectDevice,
+}: {
+  deviceId: string;
+  deviceName: string;
+  adapterType?: string | null;
+  phoneNumber?: string | null;
+  setupDevices: SetupDeviceOption[];
+  onSelectDevice: (deviceId: string) => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
   const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
@@ -229,6 +292,7 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
   };
 
   const networkReady = networkResult?.analysis.outcome === 'ready';
+  const parentFacingCopy = networkResult ? getParentFacingNetworkCopy(networkResult.analysis) : null;
 
   const copy = () => {
     navigator.clipboard.writeText(url);
@@ -238,10 +302,32 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 1</p>
+        <h4 className="mt-1 text-lg font-black text-stone-900">Make sure this is the right phone</h4>
+        <p className="mt-1 text-sm text-stone-600">
+          You are setting up <span className="font-bold text-stone-900">{deviceName}</span>
+          {phoneNumber ? ` for ${phoneNumber}` : ''}.
+        </p>
+        {setupDevices.length > 1 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {setupDevices.map((device) => (
+              <button
+                key={device.id}
+                onClick={() => onSelectDevice(device.id)}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${device.id === deviceId ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
+              >
+                {device.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className={`rounded-2xl border p-4 ${networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 1</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 2</p>
             <h4 className="text-lg font-black">Run one quick connection check</h4>
             <p className="mt-1 text-sm opacity-80">Tap the button below while your phone adapter is on the same home network.</p>
           </div>
@@ -259,8 +345,8 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
             <p className="text-sm">Checking your latest result…</p>
           ) : networkResult ? (
             <div className="space-y-1.5">
-              <p className="text-sm font-black">{networkResult.analysis.title}</p>
-              <p className="text-sm">{networkResult.analysis.summary}</p>
+              <p className="text-sm font-black">{parentFacingCopy?.title}</p>
+              <p className="text-sm">{parentFacingCopy?.summary}</p>
               <p className="text-xs opacity-70">Last checked {new Date(networkResult.createdAt).toLocaleString()}</p>
             </div>
           ) : (
@@ -274,11 +360,11 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
       <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 2</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 3</p>
             <p className="text-sm font-bold text-stone-700 mb-2">Copy your setup link</p>
           </div>
           {!networkReady && (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 1 first</span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 2 first</span>
           )}
         </div>
         <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
@@ -296,7 +382,7 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
       <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 3</p>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 4</p>
             <p className="text-sm font-bold text-stone-700 mb-2">Paste link into your adapter</p>
           </div>
         </div>
@@ -730,7 +816,17 @@ function DashboardInner() {
                     <h2 className="text-lg font-black text-stone-900">Your Devices ({devices.length})</h2>
                   </div>
                   <div className="divide-y divide-stone-100">
-                    {devices.map((device) => (
+                    {devices.map((device) => {
+                      const setupGuideDevices = devices
+                        .filter((item) => item.sip_username)
+                        .map((item) => ({
+                          id: item.id,
+                          name: item.name,
+                          adapterType: item.adapter_type,
+                          phoneNumber: item.phone_number,
+                        }));
+
+                      return (
                       <div key={device.id} className="p-6 hover:bg-stone-50 transition">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-4">
@@ -814,7 +910,14 @@ function DashboardInner() {
                         {/* Setup Guide (inline) */}
                         {showSetupGuide === device.id && device.sip_username && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
-                            <SetupGuidePanel deviceId={device.id} adapterType={device.adapter_type} />
+                            <SetupGuidePanel
+                              deviceId={device.id}
+                              deviceName={device.name}
+                              adapterType={device.adapter_type}
+                              phoneNumber={device.phone_number}
+                              setupDevices={setupGuideDevices}
+                              onSelectDevice={setShowSetupGuide}
+                            />
                           </div>
                         )}
 
@@ -909,7 +1012,8 @@ function DashboardInner() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
