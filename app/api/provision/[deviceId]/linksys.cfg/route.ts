@@ -19,6 +19,7 @@ export async function GET(
         sipDomain: true,
         userId: true,
         name: true,
+        macAddress: true,
       },
     });
 
@@ -61,6 +62,12 @@ export async function GET(
     const sipUsername = escapeXml(device.sipUsername);
     const sipPassword = escapeXml(device.sipPassword);
     const escapedSipDomainWithPort = escapeXml(sipDomainWithPort);
+
+    // Profile Rule: use MAC-based URL so device re-provisions by MAC on each boot
+    const macNormalized = device.macAddress?.replace(/:/g, '').toLowerCase();
+    const profileRule = macNormalized
+      ? escapeXml(`${req.nextUrl.origin}/api/provision/mac/${macNormalized}`)
+      : escapeXml(`${req.nextUrl.origin}/api/provision/${deviceId}/linksys.cfg`);
 
     // Dial plan: permissive — call validation happens at Twilio webhook level
     const dialPlan = `([2-9]xxxxxxxxx|1[2-9]xxxxxxxxx|011x+|911|933)`;
@@ -137,6 +144,8 @@ ${speedDialEntries}
 
   <!-- Re-enable provisioning so the device can resync -->
   <Provision_Enable>yes</Provision_Enable>
+  <Profile_Rule>${profileRule}</Profile_Rule>
+  <Resync_Periodic>3600</Resync_Periodic>
 </flat-profile>`;
 
     return new NextResponse(config, {

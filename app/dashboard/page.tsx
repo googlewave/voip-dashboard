@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
@@ -90,321 +89,70 @@ type Invoice = {
   pdf: string | null;
 };
 
-type NetworkTestAnalysis = {
-  outcome: 'ready' | 'router-blocking' | 'wrong-url' | 'server-issue' | 'mixed-failure' | 'unknown';
-  severity: 'success' | 'warning' | 'error';
-  title: string;
-  summary: string;
-  actions: string[];
-};
-
-type SavedNetworkTest = {
-  id: string;
-  deviceId: string;
-  provisioningUrl: string;
-  outcome: string;
-  summary: string;
-  createdAt: string;
-  clientIp: string | null;
-  analysis: NetworkTestAnalysis;
-};
-
-type NetworkTestProbe = {
-  ok: boolean;
-  status: number;
-  durationMs: number;
-  looksLikeProvisioning: boolean;
-  error?: string;
-};
-
-function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
-  if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
-  if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
-  return 'border-amber-200 bg-amber-50 text-amber-900';
-}
-
-function getParentFacingNetworkCopy(analysis: NetworkTestAnalysis) {
-  if (analysis.outcome === 'ready') {
-    return {
-      title: 'You are ready for setup',
-      summary: 'Your setup link is working on your home network. You can continue below.',
-    };
-  }
-
-  if (analysis.outcome === 'wrong-url') {
-    return {
-      title: 'This setup link does not look right yet',
-      summary: 'The link opened, but it did not return the setup file we expected. Double-check that you picked the right phone below.',
-    };
-  }
-
-  if (analysis.outcome === 'router-blocking') {
-    return {
-      title: 'Your router is getting in the way',
-      summary: 'Our system is ready, but your home network blocked or changed the request. Try the check again after turning off filtering or guest Wi-Fi.',
-    };
-  }
-
-  if (analysis.outcome === 'server-issue') {
-    return {
-      title: 'We need to check something on our side',
-      summary: 'Your browser reached the link, but our backend validation did not fully pass. Please contact us and we can finish the setup with you.',
-    };
-  }
-
-  if (analysis.outcome === 'mixed-failure') {
-    return {
-      title: 'Setup check failed',
-      summary: 'We could not confirm the link from your side or ours. Please rerun the check once, then contact us if it still fails.',
-    };
-  }
-
-  return {
-    title: 'Setup check needs another try',
-    summary: 'We could not clearly confirm the result. Please run the check once more.',
-  };
-}
-
-const ADAPTER_OPTIONS = [
-  { value: 'grandstream', label: 'Grandstream HT801', image: '/ht801.png' },
-  { value: 'linksys', label: 'Linksys SPA2102', image: '/spa2102.jpg' },
-];
-
 function SetupGuidePanel({
-  deviceId,
   deviceName,
   adapterType,
   phoneNumber,
 }: {
-  deviceId: string;
   deviceName: string;
   adapterType?: string | null;
   phoneNumber?: string | null;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
-  const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
-  const [runningNetworkCheck, setRunningNetworkCheck] = useState(false);
-  const [networkCheckError, setNetworkCheckError] = useState<string | null>(null);
-  const [selectedAdapterType, setSelectedAdapterType] = useState<string | null>(adapterType ?? null);
-
-  const typeParam = selectedAdapterType === 'linksys' ? '?type=linksys' : selectedAdapterType === 'grandstream' ? '?type=grandstream' : '';
-  const url = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
-    : `/api/provision/auto/${deviceId}${typeParam}`;
-
-  const loadNetworkResult = async () => {
-    const res = await fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' });
-    const data = await res.json();
-    setNetworkResult(data.result ?? null);
-  };
-
-  useEffect(() => {
-    let active = true;
-
-    const init = async () => {
-      setLoadingNetworkResult(true);
-      try {
-        const res = await fetch(`/api/network-test/result?deviceId=${encodeURIComponent(deviceId)}`, { cache: 'no-store' });
-        const data = await res.json();
-        if (!active) return;
-        setNetworkResult(data.result ?? null);
-      } catch {
-        if (!active) return;
-        setNetworkResult(null);
-      } finally {
-        if (active) setLoadingNetworkResult(false);
-      }
-    };
-
-    void init();
-
-    return () => {
-      active = false;
-    };
-  }, [deviceId]);
-
-  const runNetworkCheck = async () => {
-    setRunningNetworkCheck(true);
-    setNetworkCheckError(null);
-
-    try {
-      const startedAt = performance.now();
-      let browser: NetworkTestProbe;
-
-      try {
-        const browserResponse = await fetch(url, { cache: 'no-store' });
-        const preview = await browserResponse.text();
-        browser = {
-          ok: browserResponse.ok,
-          status: browserResponse.status,
-          durationMs: Math.round(performance.now() - startedAt),
-          looksLikeProvisioning: /<flat-profile>|<gs_provision|Provisioning failed|Device not found/i.test(preview),
-        };
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : 'Browser fetch failed';
-        browser = {
-          ok: false,
-          status: 0,
-          durationMs: Math.round(performance.now() - startedAt),
-          looksLikeProvisioning: false,
-          error: message,
-        };
-      }
-
-      const serverResponse = await fetch('/api/network-test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
-      const serverData = await serverResponse.json();
-
-      const server: NetworkTestProbe = {
-        ok: !!serverData.ok,
-        status: Number(serverData.status ?? 0),
-        durationMs: Number(serverData.durationMs ?? 0),
-        looksLikeProvisioning: !!serverData.looksLikeProvisioning,
-        error: serverData.error || undefined,
-      };
-
-      await fetch('/api/network-test/result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceId,
-          provisioningUrl: url,
-          browser,
-          server,
-        }),
-      });
-
-      await loadNetworkResult();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Could not run network check.';
-      setNetworkCheckError(message);
-    } finally {
-      setRunningNetworkCheck(false);
-    }
-  };
-
-  const networkReady = networkResult?.analysis.outcome === 'ready';
-  const parentFacingCopy = networkResult ? getParentFacingNetworkCopy(networkResult.analysis) : null;
-
-  const copy = () => {
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const adapterLabel =
+    adapterType === 'grandstream' ? 'Grandstream HT801'
+    : adapterType === 'linksys' ? 'Linksys SPA2102'
+    : 'your adapter';
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 1</p>
-        <h4 className="mt-1 text-lg font-black text-stone-900">Which adapter do you have?</h4>
-        <p className="mt-1 text-sm text-stone-600">Find the box or device itself and pick the one that matches.</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {ADAPTER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setSelectedAdapterType(opt.value)}
-              className={`relative flex flex-col items-center rounded-2xl border-2 p-3 transition ${
-                selectedAdapterType === opt.value
-                  ? 'border-stone-900 bg-stone-50 ring-2 ring-stone-900 ring-offset-1'
-                  : 'border-stone-200 bg-white hover:border-stone-400'
-              }`}
-            >
-              {selectedAdapterType === opt.value && (
-                <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-white text-xs">✓</span>
-              )}
-              <Image
-                src={opt.image}
-                alt={opt.label}
-                width={100}
-                height={100}
-                className="object-contain"
-              />
-              <span className={`mt-2 text-xs font-bold ${
-                selectedAdapterType === opt.value ? 'text-stone-900' : 'text-stone-600'
-              }`}>{opt.label}</span>
-            </button>
-          ))}
-        </div>
+    <div className="space-y-3">
+      {/* Device info */}
+      <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="font-bold text-stone-900">{deviceName}</span>
+        {phoneNumber && <span className="font-mono text-sm font-bold text-blue-600">{phoneNumber}</span>}
+        {adapterType && <span className="text-xs text-stone-400">{adapterLabel}</span>}
       </div>
 
-      <div className={`rounded-2xl border p-4 ${!selectedAdapterType ? 'border-stone-200 bg-stone-50/80 opacity-60' : networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 2</p>
-            <h4 className="text-lg font-black">Run one quick connection check</h4>
-            <p className="mt-1 text-sm opacity-80">Tap the button below while your phone adapter is on the same home network.</p>
-          </div>
-          <button
-            onClick={runNetworkCheck}
-            disabled={runningNetworkCheck || !selectedAdapterType}
-            className="inline-flex items-center justify-center rounded-full bg-white/80 px-4 py-2 text-xs font-black text-stone-900 hover:bg-white transition disabled:opacity-60"
-          >
-            {runningNetworkCheck ? 'Checking…' : 'Run Connection Check'}
-          </button>
-        </div>
-
-        <div className="mt-4 rounded-2xl bg-white/70 px-4 py-3">
-          {loadingNetworkResult ? (
-            <p className="text-sm">Checking your latest result…</p>
-          ) : networkResult ? (
-            <div className="space-y-1.5">
-              <p className="text-sm font-black">{parentFacingCopy?.title}</p>
-              <p className="text-sm">{parentFacingCopy?.summary}</p>
-              <p className="text-xs opacity-70">Last checked {new Date(networkResult.createdAt).toLocaleString()}</p>
+      {/* Steps */}
+      <ol className="space-y-2">
+        {[
+          {
+            n: '1',
+            title: 'Plug the adapter into your router',
+            desc: `Use the Ethernet cable to connect ${adapterLabel} to your home router, then plug in the power cord.`,
+          },
+          {
+            n: '2',
+            title: 'Connect your home phone',
+            desc: 'Plug your home phone handset into the port labeled Phone 1 (or Line 1) on the adapter.',
+          },
+          {
+            n: '3',
+            title: 'Wait about one minute',
+            desc: 'The adapter will connect to the internet and configure itself automatically. The indicator lights will steady out when it is ready.',
+          },
+          {
+            n: '4',
+            title: 'Pick up the phone',
+            desc: 'Lift the handset. You should hear a normal dial tone — that means everything is working.',
+          },
+        ].map(({ n, title, desc }) => (
+          <li key={n} className="flex gap-4 rounded-2xl border border-stone-100 bg-white p-4">
+            <span className="w-7 h-7 rounded-full bg-stone-900 text-white font-black text-sm flex items-center justify-center flex-shrink-0">{n}</span>
+            <div>
+              <p className="font-bold text-stone-900">{title}</p>
+              <p className="text-sm text-stone-500 mt-0.5">{desc}</p>
             </div>
-          ) : (
-            <p className="text-sm">No check run yet. Start with the button above.</p>
-          )}
+          </li>
+        ))}
+      </ol>
 
-          {networkCheckError && <p className="mt-2 text-sm text-red-700">{networkCheckError}</p>}
-        </div>
-      </div>
-
-      <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 3</p>
-            <p className="text-sm font-bold text-stone-700 mb-2">Copy your setup link</p>
-          </div>
-          {!selectedAdapterType ? (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Pick adapter first</span>
-          ) : !networkReady && (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 2 first</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-xl px-4 py-3">
-          <code className="flex-1 text-xs text-stone-700 break-all font-mono">{url}</code>
-          <button
-            onClick={copy}
-            disabled={!networkReady}
-            className="shrink-0 px-3 py-1.5 bg-[#C4531A] text-white text-xs font-bold rounded-lg hover:bg-[#a84313] transition disabled:opacity-60"
-          >
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        </div>
-      </div>
-
-      <div className={`rounded-2xl border p-4 ${networkReady ? 'border-stone-200 bg-white' : 'border-stone-200 bg-stone-50/80 opacity-80'}`}>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 4</p>
-            <p className="text-sm font-bold text-stone-700 mb-2">Paste link into your adapter</p>
-          </div>
-        </div>
-        <ol className="space-y-2 text-sm text-stone-600">
-          <li>1. Open your adapter page in a browser using its local IP (example: <span className="font-mono">http://192.168.1.50</span>).</li>
-          <li>2. Sign in and find <strong>Provisioning</strong> or <strong>Config Server</strong>.</li>
-          <li>3. Paste your copied link, click <strong>Save / Apply</strong>, then wait about 1 minute for reboot.</li>
-        </ol>
-        <p className="mt-3 text-sm text-stone-500">After reboot, pick up the phone and check for dial tone.</p>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-sm text-blue-800"><strong>Need help right now?</strong> Email <a href="mailto:hello@ringring.club" className="underline">hello@ringring.club</a> and we will guide you live.</p>
+      {/* No dial tone fallback */}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <p className="text-sm font-bold text-amber-900">No dial tone after a minute?</p>
+        <p className="text-sm text-amber-800 mt-1">
+          Unplug the power cord, wait 10 seconds, and plug it back in. If it still does not work, email us at{' '}
+          <a href="mailto:hello@ringring.club" className="underline">hello@ringring.club</a> and we will help right away.
+        </p>
       </div>
     </div>
   );
@@ -418,9 +166,7 @@ function DashboardInner() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('devices');
 
-  // Device form
-  const [newDeviceName, setNewDeviceName] = useState('');
-  const [addingDevice, setAddingDevice] = useState(false);
+  // Device ui state
   const [showSetupGuide, setShowSetupGuide] = useState<string | null>(null);
   const [deviceSettingsId, setDeviceSettingsId] = useState<string | null>(null);
 
@@ -565,29 +311,6 @@ function DashboardInner() {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const addDevice = async () => {
-    if (!newDeviceName.trim() || !user) return;
-    setAddingDevice(true);
-    const { data, error } = await supabase
-      .from('devices')
-      .insert({ 
-        name: newDeviceName.trim(), 
-        status: false, 
-        user_id: user.id,
-        quiet_hours_enabled: false,
-        usage_cap_enabled: false,
-        phone_number: profile?.twilio_number ?? null,
-      })
-      .select()
-      .single();
-    if (!error && data) {
-      setNewDeviceName('');
-      setShowSetupGuide(data.id);
-      await fetchData(user.id);
-    }
-    setAddingDevice(false);
-  };
 
   const deleteDevice = async (id: string) => {
     if (!confirm('Delete this device and all its contacts?')) return;
@@ -911,7 +634,6 @@ function DashboardInner() {
                         {showSetupGuide === device.id && device.sip_username && (
                           <div className="mt-4 pt-4 border-t border-stone-100">
                             <SetupGuidePanel
-                              deviceId={device.id}
                               deviceName={device.name}
                               adapterType={device.adapter_type}
                               phoneNumber={device.phone_number}
@@ -1029,107 +751,19 @@ function DashboardInner() {
                   </button>
                 </div>
               </>
-            ) : profile?.twilio_number ? (
-              <>
-                {/* Has number, needs a device */}
-                <div className="bg-white rounded-3xl p-8 border-2 border-stone-100">
-                  <div className="mb-6">
-                    <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 text-sm font-bold px-3 py-1.5 rounded-full mb-4">
-                      <span>✓</span> Phone number active: {profile.twilio_number}
-                    </div>
-                    <h2 className="text-2xl font-black text-stone-900 mb-2">Set Up Your Ring Ring Bridge</h2>
-                    <p className="text-stone-500">Give your adapter a name so you can find it easily — like "Kitchen Phone" or "Bedroom Phone."</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <input
-                      className="flex-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                      placeholder="e.g. Kitchen Phone"
-                      value={newDeviceName}
-                      onChange={(e) => setNewDeviceName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addDevice()}
-                      autoFocus
-                    />
-                    <button
-                      onClick={addDevice}
-                      disabled={addingDevice || !newDeviceName.trim()}
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                    >
-                      {addingDevice ? 'Registering...' : 'Register Device'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Setup guide steps (pre-registration) */}
-                <div className="bg-white rounded-3xl p-8 border-2 border-stone-100">
-                  <h3 className="text-lg font-black text-stone-900 mb-4">Quick start (no tech skills needed)</h3>
-                  <ol className="space-y-4">
-                    {[
-                      { n: '1', title: 'Plug it in', desc: 'Connect the Ring Ring Bridge to your router and power.' },
-                      { n: '2', title: 'Connect your phone', desc: 'Plug your home phone into Phone 1 on the Bridge.' },
-                      { n: '3', title: 'Register above', desc: 'Type a simple name and tap Register Device. We activate it, then your one-page setup opens right here.' },
-                    ].map(({ n, title, desc }) => (
-                      <li key={n} className="flex gap-4">
-                        <span className="w-8 h-8 rounded-full bg-[#C4531A] text-white font-black text-sm flex items-center justify-center flex-shrink-0 mt-0.5">{n}</span>
-                        <div>
-                          <p className="font-bold text-stone-900">{title}</p>
-                          <p className="text-sm text-stone-500 mt-0.5">{desc}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </>
             ) : (
-              <>
-                {/* No number, no device — show basic add form */}
-                <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
-                  <h2 className="text-lg font-black text-stone-900 mb-4">Add a Device</h2>
-                  <div className="flex gap-3">
-                    <input
-                      className="flex-1 px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none text-stone-900"
-                      placeholder="Device name (e.g., Kitchen Phone)"
-                      value={newDeviceName}
-                      onChange={(e) => setNewDeviceName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && addDevice()}
-                    />
-                    <button
-                      onClick={addDevice}
-                      disabled={addingDevice || !newDeviceName.trim()}
-                      className="px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
-                    >
-                      {addingDevice ? 'Adding...' : 'Add Device'}
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-amber-50 rounded-3xl p-6 border-2 border-amber-200">
-                  <h3 className="font-black text-amber-900 mb-2">Get a Ring Ring number first</h3>
-                  <p className="text-sm text-amber-800 mb-4">A phone number is required to make and receive calls outside the Ring Ring network.</p>
-                  <button onClick={() => router.push('/buy')} className="px-5 py-2.5 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition text-sm">
-                    See Plans →
-                  </button>
-                </div>
-              </>
+              /* No devices yet */
+              <div className="bg-white rounded-3xl p-8 border-2 border-stone-100 text-center">
+                <div className="w-14 h-14 rounded-full bg-stone-100 flex items-center justify-center text-2xl mx-auto mb-4">📦</div>
+                <h2 className="text-xl font-black text-stone-900 mb-2">Your phone is on its way</h2>
+                <p className="text-stone-500 max-w-sm mx-auto">
+                  We ship your Ring Ring adapter ready to go. Once our team has it set up for you, it will appear right here.
+                </p>
+                <p className="mt-4 text-sm text-stone-400">
+                  Questions? Email <a href="mailto:hello@ringring.club" className="underline text-[#C4531A]">hello@ringring.club</a>
+                </p>
+              </div>
             )}
-
-            {/* Post-registration setup guide — only shown while pending activation */}
-            {showSetupGuide && (() => {
-              const newDevice = devices.find(d => d.id === showSetupGuide);
-              if (!newDevice || newDevice.sip_username) return null;
-              return (
-                <div className="bg-green-50 rounded-3xl p-6 border-2 border-green-200">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-lg font-bold">✓</div>
-                      <div>
-                        <h3 className="font-black text-stone-900">{newDevice.name} registered!</h3>
-                        <p className="text-sm text-stone-500">Your Ring Ring team will activate it shortly. The Setup Guide button will appear on the device once active.</p>
-                      </div>
-                    </div>
-                    <button onClick={() => setShowSetupGuide(null)} className="text-stone-400 hover:text-stone-600 text-xl leading-none flex-shrink-0">×</button>
-                  </div>
-                </div>
-              );
-            })()}
 
           </div>
         )}
