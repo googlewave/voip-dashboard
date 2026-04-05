@@ -53,12 +53,9 @@ export default function OurStoryPage() {
             </p>
 
             {/* Hero photo — the 4 adults from the restaurant */}
-            <div className="w-full h-72 md:h-96 rounded-3xl bg-stone-200 overflow-hidden relative shadow-md mb-4">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-800/20 to-stone-700/30" />
+            <div className="w-full h-72 md:h-96 rounded-3xl bg-stone-200 overflow-hidden relative shadow-md mb-4 bg-cover bg-center" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=1200&q=80")' }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-800/10 to-stone-900/30" />
               <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.75\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundRepeat: 'repeat', backgroundSize: '180px' }} />
-              <div className="absolute bottom-5 left-6 right-6">
-                <p className="text-white/70 text-xs italic">[Photo: The 4 adults from the restaurant]</p>
-              </div>
             </div>
             <p className="text-stone-400 text-sm italic text-center mb-16">The families behind the ring.</p>
           </div>
@@ -83,16 +80,13 @@ export default function OurStoryPage() {
             {/* 3 stock photo placeholders */}
             <div className="grid grid-cols-3 gap-4">
               {[
-                'A rotary dial phone — close-up, warm light',
-                'A bicycle leaning against a curb on a quiet street',
-                'A handwritten note on folded paper',
-              ].map((caption) => (
-                <div key={caption} className="aspect-square rounded-2xl bg-stone-100 overflow-hidden relative shadow-sm">
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-50/60 to-stone-200/60" />
+                { caption: 'A rotary dial phone — close-up, warm light', url: 'https://images.unsplash.com/photo-1520697517641-b65ff6ed3e66?auto=format&fit=crop&w=400&q=80' },
+                { caption: 'A bicycle leaning against a curb on a quiet street', url: 'https://images.unsplash.com/photo-1552085876-056e87f87266?auto=format&fit=crop&w=400&q=80' },
+                { caption: 'A handwritten note on folded paper', url: 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=400&q=80' },
+              ].map((item) => (
+                <div key={item.caption} className="aspect-square rounded-2xl bg-stone-100 overflow-hidden relative shadow-sm bg-cover bg-center" style={{ backgroundImage: `url("${item.url}")` }}>
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-900/10 to-stone-800/30" />
                   <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.75\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundRepeat: 'repeat', backgroundSize: '180px' }} />
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <p className="text-stone-400 text-[10px] italic leading-tight">[Stock: {caption}]</p>
-                  </div>
                 </div>
               ))}
             </div>
@@ -121,16 +115,13 @@ export default function OurStoryPage() {
             {/* Jack + Louise photos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               {[
-                { label: 'Jack', caption: '[Photo: Jack lying down while taking a call]' },
-                { label: 'Louise', caption: '[Photo: Louise taking a call on the recliner]' },
+                { label: 'Jack', url: 'https://images.unsplash.com/photo-1516627145497-ae6968895b74?auto=format&fit=crop&w=600&q=80' },
+                { label: 'Louise', url: 'https://images.unsplash.com/photo-1498749363022-de9f1a238fb3?auto=format&fit=crop&w=600&q=80' },
               ].map((item) => (
                 <div key={item.label} className="relative">
-                  <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden shadow-md relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-800/20 to-stone-700/30" />
+                  <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden shadow-md relative bg-cover bg-center" style={{ backgroundImage: `url("${item.url}")` }}>
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-800/10 to-stone-700/30" />
                     <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.75\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundRepeat: 'repeat', backgroundSize: '180px' }} />
-                    <div className="absolute bottom-3 left-3 right-3">
-                      <p className="text-white/60 text-xs italic">{item.caption}</p>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -205,12 +196,9 @@ export default function OurStoryPage() {
             </div>
 
             {/* Child's phone book photo */}
-            <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden relative shadow-md">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-700/20 to-stone-600/25" />
+            <div className="w-full h-64 rounded-2xl bg-stone-200 overflow-hidden relative shadow-md bg-cover bg-center" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1598226038377-6e47963ecffe?auto=format&fit=crop&w=1200&q=80")' }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-700/10 to-stone-600/30" />
               <div className="absolute inset-0 opacity-[0.10]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.75\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")', backgroundRepeat: 'repeat', backgroundSize: '180px' }} />
-              <div className="absolute bottom-4 left-5 right-5">
-                <p className="text-white/60 text-xs italic">[Photo: A child&rsquo;s hand-written &ldquo;Phone Book&rdquo; near a Post-it Rolodex — warm, film-grain]</p>
-              </div>
             </div>
           </div>
         </section>
