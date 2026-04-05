@@ -209,10 +209,11 @@ export default function FAQPage() {
                 {section.cards.map((card) => {
                   const key = `${section.id}-${card.q}`;
                   const isOpen = open === key;
+                  const isHighlighted = 'highlight' in card && !!card.highlight;
                   return (
                     <div
                       key={key}
-                      className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${card.highlight ? 'border-red-100' : 'border-stone-100'}`}
+                      className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${isHighlighted ? 'border-red-100' : 'border-stone-100'}`}
                     >
                       <button
                         onClick={() => toggle(key)}
@@ -225,15 +226,15 @@ export default function FAQPage() {
                       </button>
 
                       {isOpen && (
-                        <div className={`px-6 pb-6 border-t ${card.highlight ? 'border-red-50 bg-red-50/30' : 'border-stone-50 bg-stone-50/50'}`}>
+                        <div className={`px-6 pb-6 border-t ${isHighlighted ? 'border-red-50 bg-red-50/30' : 'border-stone-50 bg-stone-50/50'}`}>
                           <div className="pt-4">
-                            {card.prefix && (
+                            {'prefix' in card && card.prefix && (
                               <p className="text-stone-600 text-sm leading-relaxed mb-3">{card.prefix}</p>
                             )}
                             {card.a && (
                               <p className="text-stone-600 text-sm leading-relaxed whitespace-pre-line">{card.a}</p>
                             )}
-                            {card.list && (
+                            {'list' in card && card.list && (
                               <ul className="space-y-2">
                                 {card.list.map((item) => (
                                   <li key={item.label} className="flex items-start gap-2 text-sm text-stone-600">
@@ -243,7 +244,7 @@ export default function FAQPage() {
                                 ))}
                               </ul>
                             )}
-                            {card.pricingList && (
+                            {'pricingList' in card && card.pricingList && (
                               <div className="space-y-3">
                                 {card.pricingList.map((item) => (
                                   <div key={item.plan} className="flex items-start gap-3 bg-white border border-stone-100 rounded-xl p-3">

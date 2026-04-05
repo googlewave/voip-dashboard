@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
 import { ADAPTER_OPTIONS, getAdapterLabel, getDefaultAdapterType, getProvisioningQueryType, normalizeAdapterType } from '@/lib/voip/adapters';
 import type { SupportedAdapterType } from '@/lib/voip/adapters';
-import { formatPhoneInput, getPhoneInputHint, isPhoneInputValid } from '@/lib/phone';
+import { formatPhoneDisplay, formatPhoneInput, getPhoneInputHint, isPhoneInputValid } from '@/lib/phone';
 
 type User = {
   id: string;
@@ -788,7 +788,7 @@ export default function AdminDashboard({
                           </div>
                           <p className="text-xs text-stone-400 mt-0.5">
                             {userDeviceList.length} device{userDeviceList.length !== 1 ? 's' : ''}
-                            {user.twilioNumber && <span className="font-mono ml-2">{user.twilioNumber}</span>}
+                            {user.twilioNumber && <span className="font-mono ml-2">{formatPhoneDisplay(user.twilioNumber)}</span>}
                           </p>
                         </div>
                       </div>
@@ -815,7 +815,7 @@ export default function AdminDashboard({
                             </div>
                             <div>
                               <span className="text-xs text-stone-400 uppercase tracking-wide">Phone Number</span>
-                              <p className="font-mono text-stone-800">{user.twilioNumber || <span className="text-stone-400 not-italic">Not provisioned</span>}</p>
+                              <p className="font-mono text-stone-800">{user.twilioNumber ? formatPhoneDisplay(user.twilioNumber) : <span className="text-stone-400 not-italic">Not provisioned</span>}</p>
                             </div>
                             <div>
                               <span className="text-xs text-stone-400 uppercase tracking-wide">Stripe ID</span>
@@ -922,7 +922,7 @@ export default function AdminDashboard({
                                         </div>
                                         <p className="text-xs text-stone-400 mt-0.5 truncate">
                                           {device.phoneNumber
-                                            ? <span className="font-mono text-blue-600 font-semibold">{device.phoneNumber}</span>
+                                            ? <span className="font-mono text-blue-600 font-semibold">{formatPhoneDisplay(device.phoneNumber)}</span>
                                             : <span className="text-amber-500">No line</span>
                                           }
                                           {' · '}{device.sipUsername || 'No SIP creds'}
@@ -1482,7 +1482,7 @@ export default function AdminDashboard({
                             <p className="font-bold text-stone-900 text-sm truncate">{user.email}</p>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               {user.twilioNumber && (
-                                <span className="text-xs font-mono text-stone-500">{user.twilioNumber}</span>
+                                <span className="text-xs font-mono text-stone-500">{formatPhoneDisplay(user.twilioNumber)}</span>
                               )}
                               {isStripe && user.stripeCustomerId && (
                                 <span className="text-xs text-stone-400 font-mono">
@@ -1896,7 +1896,7 @@ export default function AdminDashboard({
                                   </span>
                                   <span className="font-bold text-stone-900">{device.name}</span>
                                 </div>
-                                <span className="font-mono text-xs text-stone-500">{device.phoneNumber || 'No line'} · {device.adapterType || 'unknown'}</span>
+                                <span className="font-mono text-xs text-stone-500">{device.phoneNumber ? formatPhoneDisplay(device.phoneNumber) : 'No line'} · {device.adapterType || 'unknown'}</span>
                                 <span className="font-mono text-xs text-stone-400">{device.id}</span>
                               </div>
                             </td>
@@ -2010,9 +2010,9 @@ export default function AdminDashboard({
                     value={editDeviceForm.phoneNumber}
                     onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, phoneNumber: formatPhoneInput(e.target.value) }))}
                     className={`w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 focus:outline-none focus:border-blue-500 font-mono ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'border-stone-200' : 'border-red-300'}`}
-                    placeholder="e.g. +1 610 854 9109"
+                    placeholder="(610) 854-9109"
                   />
-                  <p className={`text-xs mt-1 ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'text-stone-400' : 'text-red-600'}`}>{getPhoneInputHint(editDeviceForm.phoneNumber, 'Leave blank to clear the assigned line. US numbers can be entered as 6108549109.')}</p>
+                  <p className={`text-xs mt-1 ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'text-stone-400' : 'text-red-600'}`}>{getPhoneInputHint(editDeviceForm.phoneNumber, "Leave blank to remove the line. We'll format the number for you.")}</p>
                 </div>
 
                 {/* MAC Address */}

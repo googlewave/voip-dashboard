@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const normalizedPhoneNumber = normalizePhoneToE164(phoneNumber);
 
     if (!name?.trim() || !normalizedPhoneNumber) {
-      return NextResponse.json({ error: 'Name and a valid E.164 phone number are required' }, { status: 400 });
+      return NextResponse.json({ error: 'Name and a valid phone number are required' }, { status: 400 });
     }
 
     if (quickDialSlot && deviceId) {

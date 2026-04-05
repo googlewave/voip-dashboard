@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatPhoneInput, getPhoneInputHint, isPhoneInputValid, normalizePhoneToE164 } from '@/lib/phone';
+import { formatPhoneDisplay, formatPhoneInput, getPhoneInputHint, isPhoneInputValid, normalizePhoneToE164 } from '@/lib/phone';
 
 interface Contact {
   id: string;
@@ -223,13 +223,13 @@ export default function TrustedContactsManager({
                 type="tel"
                 inputMode="tel"
                 className={`w-full px-4 py-3 rounded-xl border bg-white focus:border-[#C4531A] outline-none text-sm font-mono text-stone-900 placeholder:text-stone-400 ${isPhoneInputValid(form.phone) ? 'border-amber-200' : 'border-red-300'}`}
-                placeholder="+1 555 000 0000"
+                placeholder="(610) 854-9109"
                 value={form.phone}
                 onChange={(e) => setForm((f) => ({ ...f, phone: formatPhoneInput(e.target.value) }))}
                 onKeyDown={(e) => e.key === 'Enter' && addContact()}
               />
               <p className={`text-xs ${isPhoneInputValid(form.phone) ? 'text-stone-500' : 'text-red-700'}`}>
-                {getPhoneInputHint(form.phone, 'US numbers can be typed as 5550000000. We will save them in E.164 format.')}
+                {getPhoneInputHint(form.phone, "Type a number and we'll format it for you.")}
               </p>
             </div>
           ) : (
@@ -308,7 +308,7 @@ export default function TrustedContactsManager({
                   <p className="text-xs text-stone-500 truncate mt-0.5">
                     {contact.contactType === 'ring_ring_friend'
                       ? '👥 Ring Ring Friend'
-                      : contact.phone || '—'}
+                      : formatPhoneDisplay(contact.phone) || '—'}
                   </p>
                 </div>
 

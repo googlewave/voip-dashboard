@@ -68,15 +68,37 @@ export function isPhoneInputValid(raw: string | null | undefined) {
   return normalizePhoneToE164(raw) !== null;
 }
 
+export function formatPhoneDisplay(raw: string | null | undefined) {
+  if (!raw) return '';
+
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  const digits = extractDigits(trimmed);
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 11)}`;
+  }
+
+  if (trimmed.startsWith('+') && digits) {
+    return `+${digits}`;
+  }
+
+  return trimmed;
+}
+
 export function getPhoneInputHint(raw: string | null | undefined, emptyHint: string) {
   if (!raw?.trim()) return emptyHint;
 
   const normalized = normalizePhoneToE164(raw);
   if (normalized) {
-    return `Saved as ${normalized}`;
+    return 'Looks good.';
   }
 
-  return 'Enter a full phone number like +1 610 854 9109 or 6108549109.';
+  return 'Enter a 10-digit number, like (610) 854-9109.';
 }
 
 export function formatAreaCodeInput(raw: string | null | undefined): string {

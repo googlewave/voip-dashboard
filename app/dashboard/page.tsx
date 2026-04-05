@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import FriendsTab from './FriendsTab';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
+import { formatPhoneDisplay } from '@/lib/phone';
 import { getAdapterLabel, getProvisioningQueryType } from '@/lib/voip/adapters';
 
 interface Contact {
@@ -300,7 +301,7 @@ function SetupGuidePanel({
       {/* Device info */}
       <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="font-bold text-stone-900">{deviceName}</span>
-        {phoneNumber && <span className="font-mono text-sm font-bold text-blue-600">{phoneNumber}</span>}
+        {phoneNumber && <span className="font-mono text-sm font-bold text-blue-600">{formatPhoneDisplay(phoneNumber)}</span>}
         {adapterType && <span className="text-xs text-stone-400">{adapterLabel}</span>}
       </div>
 
@@ -807,7 +808,7 @@ function DashboardInner() {
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-sm text-stone-500">
                                 {device.phone_number ? (
-                                  <span className="font-mono font-bold text-blue-600">{device.phone_number}</span>
+                                  <span className="font-mono font-bold text-blue-600">{formatPhoneDisplay(device.phone_number)}</span>
                                 ) : (
                                   <span className="text-stone-400">No line connected</span>
                                 )}
@@ -1024,7 +1025,7 @@ function DashboardInner() {
                         <p className="font-black text-stone-900">{device.name}</p>
                         <p className="text-sm text-stone-500 truncate">
                           {device.phone_number
-                            ? <span className="font-mono text-blue-600">{device.phone_number}</span>
+                            ? <span className="font-mono text-blue-600">{formatPhoneDisplay(device.phone_number)}</span>
                             : 'No line connected'
                           }
                           {' · '}{device.contacts?.length ?? 0} contacts

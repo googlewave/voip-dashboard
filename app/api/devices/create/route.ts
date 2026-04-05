@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     if (phoneNumber && !normalizedPhoneNumber) {
       return NextResponse.json(
-        { error: 'Phone number must be a valid E.164 number' },
+        { error: 'Enter a valid phone number' },
         { status: 400 }
       );
     }

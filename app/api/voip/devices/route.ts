@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const { name, phoneNumber, adapterType, adapterIp } = await req.json();
   const normalizedPhoneNumber = phoneNumber ? normalizePhoneToE164(phoneNumber) : null;
   if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
-  if (phoneNumber && !normalizedPhoneNumber) return NextResponse.json({ error: 'Phone number must be a valid E.164 number' }, { status: 400 });
+  if (phoneNumber && !normalizedPhoneNumber) return NextResponse.json({ error: 'Enter a valid phone number' }, { status: 400 });
 
   const device = await prisma.device.create({
     data: { userId: user.id, name, phoneNumber: normalizedPhoneNumber, adapterType, adapterIp },
