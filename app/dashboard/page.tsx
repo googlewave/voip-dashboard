@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
@@ -116,13 +117,6 @@ type NetworkTestProbe = {
   error?: string;
 };
 
-type SetupDeviceOption = {
-  id: string;
-  name: string;
-  adapterType: string | null;
-  phoneNumber: string | null;
-};
-
 function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
   if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
   if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
@@ -171,28 +165,30 @@ function getParentFacingNetworkCopy(analysis: NetworkTestAnalysis) {
   };
 }
 
+const ADAPTER_OPTIONS = [
+  { value: 'grandstream', label: 'Grandstream HT801', image: '/ht801.png' },
+  { value: 'linksys', label: 'Linksys SPA2102', image: '/spa2102.jpg' },
+];
+
 function SetupGuidePanel({
   deviceId,
   deviceName,
   adapterType,
   phoneNumber,
-  setupDevices,
-  onSelectDevice,
 }: {
   deviceId: string;
   deviceName: string;
   adapterType?: string | null;
   phoneNumber?: string | null;
-  setupDevices: SetupDeviceOption[];
-  onSelectDevice: (deviceId: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [networkResult, setNetworkResult] = useState<SavedNetworkTest | null>(null);
   const [loadingNetworkResult, setLoadingNetworkResult] = useState(true);
   const [runningNetworkCheck, setRunningNetworkCheck] = useState(false);
   const [networkCheckError, setNetworkCheckError] = useState<string | null>(null);
+  const [selectedAdapterType, setSelectedAdapterType] = useState<string | null>(adapterType ?? null);
 
-  const typeParam = adapterType === 'linksys' ? '?type=linksys' : adapterType === 'grandstream' ? '?type=grandstream' : '';
+  const typeParam = selectedAdapterType === 'linksys' ? '?type=linksys' : selectedAdapterType === 'grandstream' ? '?type=grandstream' : '';
   const url = typeof window !== 'undefined'
     ? `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
     : `/api/provision/auto/${deviceId}${typeParam}`;
@@ -304,27 +300,38 @@ function SetupGuidePanel({
     <div className="space-y-4">
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 1</p>
-        <h4 className="mt-1 text-lg font-black text-stone-900">Make sure this is the right phone</h4>
-        <p className="mt-1 text-sm text-stone-600">
-          You are setting up <span className="font-bold text-stone-900">{deviceName}</span>
-          {phoneNumber ? ` for ${phoneNumber}` : ''}.
-        </p>
-        {setupDevices.length > 1 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {setupDevices.map((device) => (
-              <button
-                key={device.id}
-                onClick={() => onSelectDevice(device.id)}
-                className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${device.id === deviceId ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}`}
-              >
-                {device.name}
-              </button>
-            ))}
-          </div>
-        )}
+        <h4 className="mt-1 text-lg font-black text-stone-900">Which adapter do you have?</h4>
+        <p className="mt-1 text-sm text-stone-600">Find the box or device itself and pick the one that matches.</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {ADAPTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSelectedAdapterType(opt.value)}
+              className={`relative flex flex-col items-center rounded-2xl border-2 p-3 transition ${
+                selectedAdapterType === opt.value
+                  ? 'border-stone-900 bg-stone-50 ring-2 ring-stone-900 ring-offset-1'
+                  : 'border-stone-200 bg-white hover:border-stone-400'
+              }`}
+            >
+              {selectedAdapterType === opt.value && (
+                <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-900 text-white text-xs">✓</span>
+              )}
+              <Image
+                src={opt.image}
+                alt={opt.label}
+                width={100}
+                height={100}
+                className="object-contain"
+              />
+              <span className={`mt-2 text-xs font-bold ${
+                selectedAdapterType === opt.value ? 'text-stone-900' : 'text-stone-600'
+              }`}>{opt.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className={`rounded-2xl border p-4 ${networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+      <div className={`rounded-2xl border p-4 ${!selectedAdapterType ? 'border-stone-200 bg-stone-50/80 opacity-60' : networkResult ? networkSeverityClass(networkResult.analysis.severity) : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.2em] opacity-70">Step 2</p>
@@ -333,7 +340,7 @@ function SetupGuidePanel({
           </div>
           <button
             onClick={runNetworkCheck}
-            disabled={runningNetworkCheck}
+            disabled={runningNetworkCheck || !selectedAdapterType}
             className="inline-flex items-center justify-center rounded-full bg-white/80 px-4 py-2 text-xs font-black text-stone-900 hover:bg-white transition disabled:opacity-60"
           >
             {runningNetworkCheck ? 'Checking…' : 'Run Connection Check'}
@@ -363,7 +370,9 @@ function SetupGuidePanel({
             <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">Step 3</p>
             <p className="text-sm font-bold text-stone-700 mb-2">Copy your setup link</p>
           </div>
-          {!networkReady && (
+          {!selectedAdapterType ? (
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Pick adapter first</span>
+          ) : !networkReady && (
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">Run Step 2 first</span>
           )}
         </div>
@@ -817,15 +826,6 @@ function DashboardInner() {
                   </div>
                   <div className="divide-y divide-stone-100">
                     {devices.map((device) => {
-                      const setupGuideDevices = devices
-                        .filter((item) => item.sip_username)
-                        .map((item) => ({
-                          id: item.id,
-                          name: item.name,
-                          adapterType: item.adapter_type,
-                          phoneNumber: item.phone_number,
-                        }));
-
                       return (
                       <div key={device.id} className="p-6 hover:bg-stone-50 transition">
                         <div className="flex items-center justify-between">
@@ -915,8 +915,6 @@ function DashboardInner() {
                               deviceName={device.name}
                               adapterType={device.adapter_type}
                               phoneNumber={device.phone_number}
-                              setupDevices={setupGuideDevices}
-                              onSelectDevice={setShowSetupGuide}
                             />
                           </div>
                         )}
