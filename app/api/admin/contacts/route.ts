@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizePhoneToE164 } from '@/lib/phone';
 
 export async function POST(req: NextRequest) {
   try {
     const { userId, deviceId, name, phoneNumber, quickDialSlot } = await req.json();
+    const normalizedPhoneNumber = normalizePhoneToE164(phoneNumber);
+
+    if (!name?.trim() || !normalizedPhoneNumber) {
+      return NextResponse.json({ error: 'Name and a valid E.164 phone number are required' }, { status: 400 });
+    }
 
     if (quickDialSlot && deviceId) {
       await prisma.contact.updateMany({
@@ -16,8 +22,8 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         deviceId: deviceId ?? null,
-        name,
-        phoneNumber,
+        name: name.trim(),
+        phoneNumber: normalizedPhoneNumber,
         quickDialSlot: quickDialSlot ?? null,
       },
       select: {

@@ -1,0 +1,69 @@
+const MIN_E164_DIGITS = 8;
+const MAX_E164_DIGITS = 15;
+
+function extractDigits(raw: string) {
+  return raw.replace(/\D/g, '');
+}
+
+export function normalizePhoneToE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const digits = extractDigits(trimmed);
+  if (!digits) return null;
+
+  if (trimmed.startsWith('+')) {
+    if (digits.length < MIN_E164_DIGITS || digits.length > MAX_E164_DIGITS) {
+      return null;
+    }
+    return `+${digits}`;
+  }
+
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+
+  return null;
+}
+
+export function formatPhoneInput(raw: string | null | undefined): string {
+  if (!raw) return '';
+
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+
+  const digits = extractDigits(trimmed);
+  if (!digits) return trimmed.startsWith('+') ? '+' : '';
+
+  const looksUsLike = !trimmed.startsWith('+') || (digits.length <= 11 && digits.startsWith('1'));
+  if (looksUsLike && digits.length <= 11) {
+    const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+    if (national.length <= 3) return `+1 ${national}`.trim();
+    if (national.length <= 6) return `+1 ${national.slice(0, 3)} ${national.slice(3)}`.trim();
+    return `+1 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6, 10)}`.trim();
+  }
+
+  return `+${digits}`;
+}
+
+export function isPhoneInputValid(raw: string | null | undefined) {
+  if (!raw?.trim()) return true;
+  return normalizePhoneToE164(raw) !== null;
+}
+
+export function getPhoneInputHint(raw: string | null | undefined, emptyHint: string) {
+  if (!raw?.trim()) return emptyHint;
+
+  const normalized = normalizePhoneToE164(raw);
+  if (normalized) {
+    return `Saved as ${normalized}`;
+  }
+
+  return 'Enter a full phone number like +1 610 854 9109 or 6108549109.';
+}

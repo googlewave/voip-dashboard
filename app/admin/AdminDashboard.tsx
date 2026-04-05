@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
 import { ADAPTER_OPTIONS, getAdapterLabel, getDefaultAdapterType, getProvisioningQueryType, normalizeAdapterType } from '@/lib/voip/adapters';
 import type { SupportedAdapterType } from '@/lib/voip/adapters';
+import { formatPhoneInput, getPhoneInputHint, isPhoneInputValid } from '@/lib/phone';
 
 type User = {
   id: string;
@@ -2004,13 +2005,14 @@ export default function AdminDashboard({
                 <div>
                   <label className="text-sm font-bold text-stone-700 mb-2 block">Phone Line <span className="text-stone-400">(optional)</span></label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="tel"
                     value={editDeviceForm.phoneNumber}
-                    onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, phoneNumber: e.target.value.trim() }))}
-                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-blue-500 font-mono"
-                    placeholder="e.g. +16108549109"
+                    onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, phoneNumber: formatPhoneInput(e.target.value) }))}
+                    className={`w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 focus:outline-none focus:border-blue-500 font-mono ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'border-stone-200' : 'border-red-300'}`}
+                    placeholder="e.g. +1 610 854 9109"
                   />
-                  <p className="text-xs text-stone-400 mt-1">E.164 format. Leave blank to clear the assigned line.</p>
+                  <p className={`text-xs mt-1 ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'text-stone-400' : 'text-red-600'}`}>{getPhoneInputHint(editDeviceForm.phoneNumber, 'Leave blank to clear the assigned line. US numbers can be entered as 6108549109.')}</p>
                 </div>
 
                 {/* MAC Address */}
@@ -2058,7 +2060,7 @@ export default function AdminDashboard({
                 <div className="flex gap-3">
                   <button
                     onClick={saveDevice}
-                    disabled={loading[`edit_${editingDevice.id}`] || !editDeviceForm.name.trim() || !editDeviceForm.macAddress.trim() || !normalizeAdapterType(editDeviceForm.adapterType)}
+                    disabled={loading[`edit_${editingDevice.id}`] || !editDeviceForm.name.trim() || !editDeviceForm.macAddress.trim() || !normalizeAdapterType(editDeviceForm.adapterType) || !isPhoneInputValid(editDeviceForm.phoneNumber)}
                     className="flex-1 px-4 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition disabled:opacity-50"
                   >
                     {loading[`edit_${editingDevice.id}`] ? 'Saving...' : 'Save Changes'}

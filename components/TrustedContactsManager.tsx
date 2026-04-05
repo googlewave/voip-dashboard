@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatPhoneInput, getPhoneInputHint, isPhoneInputValid, normalizePhoneToE164 } from '@/lib/phone';
 
 interface Contact {
   id: string;
@@ -88,18 +89,19 @@ export default function TrustedContactsManager({
 
   const addContact = async () => {
     if (!form.name.trim()) return;
-    if (form.type === 'phone_number' && !form.phone.trim()) return;
+    if (form.type === 'phone_number' && !normalizePhoneToE164(form.phone)) return;
     if (form.type === 'ring_ring_friend' && !form.friendDeviceId) return;
 
     setSaving(true);
     const friendDevice = friendDevices.find((d) => d.id === form.friendDeviceId);
+    const normalizedPhone = form.type === 'phone_number' ? normalizePhoneToE164(form.phone) : null;
 
     await supabase.from('contacts').insert({
       device_id: deviceId,
       user_id: userId,
       name: form.name.trim(),
       contact_type: form.type,
-      phone_number: form.type === 'phone_number' ? form.phone.trim() : null,
+      phone_number: normalizedPhone,
       sip_username: form.type === 'ring_ring_friend' ? (friendDevice?.sip_username ?? null) : null,
       friend_device_id: form.type === 'ring_ring_friend' ? form.friendDeviceId : null,
       friendship_id: form.type === 'ring_ring_friend' ? (friendDevice?.friendship_id ?? null) : null,
@@ -216,13 +218,20 @@ export default function TrustedContactsManager({
           />
 
           {form.type === 'phone_number' ? (
-            <input
-              className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-white focus:border-[#C4531A] outline-none text-sm font-mono text-stone-900 placeholder:text-stone-400"
-              placeholder="+1 (555) 000-0000"
-              value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              onKeyDown={(e) => e.key === 'Enter' && addContact()}
-            />
+            <div className="space-y-2">
+              <input
+                type="tel"
+                inputMode="tel"
+                className={`w-full px-4 py-3 rounded-xl border bg-white focus:border-[#C4531A] outline-none text-sm font-mono text-stone-900 placeholder:text-stone-400 ${isPhoneInputValid(form.phone) ? 'border-amber-200' : 'border-red-300'}`}
+                placeholder="+1 555 000 0000"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: formatPhoneInput(e.target.value) }))}
+                onKeyDown={(e) => e.key === 'Enter' && addContact()}
+              />
+              <p className={`text-xs ${isPhoneInputValid(form.phone) ? 'text-stone-500' : 'text-red-700'}`}>
+                {getPhoneInputHint(form.phone, 'US numbers can be typed as 5550000000. We will save them in E.164 format.')}
+              </p>
+            </div>
           ) : (
             <select
               value={form.friendDeviceId}
@@ -243,7 +252,7 @@ export default function TrustedContactsManager({
             disabled={
               saving ||
               !form.name.trim() ||
-              (form.type === 'phone_number' ? !form.phone.trim() : !form.friendDeviceId)
+              (form.type === 'phone_number' ? !normalizePhoneToE164(form.phone) : !form.friendDeviceId)
             }
             className="w-full px-4 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition text-sm disabled:opacity-50"
           >

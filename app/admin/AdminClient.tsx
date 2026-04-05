@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ADAPTER_OPTIONS, getAdapterLabel, getDefaultAdapterType, getProvisioningQueryType } from '@/lib/voip/adapters';
 import type { SupportedAdapterType } from '@/lib/voip/adapters';
+import { formatPhoneInput, normalizePhoneToE164 } from '@/lib/phone';
 
 type Device = {
   id: string;
@@ -759,9 +760,11 @@ export default function AdminClient({
                                       className="bg-slate-700 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-36"
                                     />
                                     <input
-                                      placeholder="Phone number"
+                                      type="tel"
+                                      inputMode="tel"
+                                      placeholder="+1 555 000 0000"
                                       value={nc.phone}
-                                      onChange={(e) => setNewContact((prev) => ({ ...prev, [d.id]: { ...nc, phone: e.target.value } }))}
+                                      onChange={(e) => setNewContact((prev) => ({ ...prev, [d.id]: { ...nc, phone: formatPhoneInput(e.target.value) } }))}
                                       className="bg-slate-700 border border-slate-600 text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-blue-500 w-40"
                                     />
                                     <select
@@ -778,7 +781,7 @@ export default function AdminClient({
                                     </select>
                                     <button
                                       onClick={() => addContact(d.id, u.id)}
-                                      disabled={loading[`contact_${d.id}`] || !nc.name?.trim() || !nc.phone?.trim()}
+                                      disabled={loading[`contact_${d.id}`] || !nc.name?.trim() || !normalizePhoneToE164(nc.phone)}
                                       className="text-sm bg-green-700 hover:bg-green-600 disabled:opacity-50 px-4 py-2 rounded text-white font-medium transition"
                                     >
                                       {loading[`contact_${d.id}`] ? 'Adding...' : '+ Add'}

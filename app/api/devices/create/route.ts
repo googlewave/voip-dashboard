@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { normalizeAdapterType } from '@/lib/voip/adapters';
+import { normalizePhoneToE164 } from '@/lib/phone';
 
 export async function POST(req: NextRequest) {
   try {
     const { userId, name, adapterType, macAddress, phoneNumber } = await req.json();
     const normalizedAdapterType = normalizeAdapterType(adapterType);
+    const normalizedPhoneNumber = phoneNumber ? normalizePhoneToE164(phoneNumber) : null;
 
     if (!userId || !name) {
       return NextResponse.json(
@@ -24,6 +26,13 @@ export async function POST(req: NextRequest) {
     if (!macAddress || !macAddress.trim()) {
       return NextResponse.json(
         { error: 'MAC address is required' },
+        { status: 400 }
+      );
+    }
+
+    if (phoneNumber && !normalizedPhoneNumber) {
+      return NextResponse.json(
+        { error: 'Phone number must be a valid E.164 number' },
         { status: 400 }
       );
     }
@@ -61,7 +70,7 @@ export async function POST(req: NextRequest) {
         adapterType: normalizedAdapterType,
         macAddress: normalizedMac,
         isOnline: false,
-        phoneNumber: phoneNumber || null,
+        phoneNumber: normalizedPhoneNumber,
       },
       select: {
         id: true,

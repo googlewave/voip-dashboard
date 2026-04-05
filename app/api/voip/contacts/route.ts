@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUser } from '@/lib/auth';
+import { normalizePhoneToE164 } from '@/lib/phone';
 
 export async function GET() {
   const user = await getUser();
@@ -18,10 +19,11 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { name, phoneNumber, quickDialSlot } = await req.json();
-  if (!name || !phoneNumber) return NextResponse.json({ error: 'Name and phone required' }, { status: 400 });
+  const normalizedPhoneNumber = normalizePhoneToE164(phoneNumber);
+  if (!name?.trim() || !normalizedPhoneNumber) return NextResponse.json({ error: 'Name and a valid E.164 phone number are required' }, { status: 400 });
 
   const contact = await prisma.contact.create({
-    data: { userId: user.id, name, phoneNumber, quickDialSlot },
+    data: { userId: user.id, name: name.trim(), phoneNumber: normalizedPhoneNumber, quickDialSlot },
   });
   return NextResponse.json(contact);
 }
