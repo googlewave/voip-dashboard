@@ -5,6 +5,18 @@ import type {
   MobileHomeResponse,
 } from '../types';
 
+export class MobileApiError extends Error {
+  path: string;
+  status: number;
+
+  constructor(path: string, status: number, message: string) {
+    super(message);
+    this.name = 'MobileApiError';
+    this.path = path;
+    this.status = status;
+  }
+}
+
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
 
 export function getApiBaseUrl() {
@@ -24,19 +36,26 @@ async function request<T>(path: string, accessToken: string, init?: RequestInit)
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured.');
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      ...(init?.headers ?? {}),
-    },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Network request failed';
+    throw new MobileApiError(path, 0, message);
+  }
 
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(payload?.error || 'Request failed');
+    throw new MobileApiError(path, response.status, payload?.error || `Request failed (${response.status})`);
   }
 
   return payload as T;

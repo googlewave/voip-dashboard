@@ -7,7 +7,11 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "sync-users": "tsx scripts/sync-stripe-users.ts"
+    "sync-users": "tsx scripts/sync-stripe-users.ts",
+    "mobile:start": "npm --prefix apps/mobile run start",
+    "mobile:android": "npm --prefix apps/mobile run android",
+    "mobile:ios": "npm --prefix apps/mobile run ios",
+    "mobile:typecheck": "npm --prefix apps/mobile run typecheck"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",

@@ -62,9 +62,10 @@ async function resolveQuickDialContact(deviceId: string, userId: string, slot: n
 }
 
 export async function POST(req: Request) {
-  const formData = await req.formData();
-  const to = formData.get('To')?.toString() || '';
-  const from = formData.get('From')?.toString() || '';
+  const body = await req.text();
+  const params = new URLSearchParams(body);
+  const to = params.get('To') || '';
+  const from = params.get('From') || '';
 
   const sipDomain = process.env.TWILIO_SIP_DOMAIN!;
   const toUserPart = extractUserPart(to);

@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import type { Session } from '@supabase/supabase-js';
 import {
   ActivityIndicator,
@@ -16,14 +17,30 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
-import { createInvite, fetchBilling, fetchFriends, fetchHome, getApiConfigError, openBillingPortal } from './src/lib/api';
-import { formatMoney, formatPhoneDisplay, formatRelativePlan } from './src/lib/phone';
+import {
+  createInvite,
+  fetchBilling,
+  fetchFriends,
+  fetchHome,
+  getApiConfigError,
+  MobileApiError,
+  openBillingPortal,
+} from './src/lib/api';
 import { getMobileConfigError, supabase } from './src/lib/supabase';
-import type { FriendsResponse, MobileBillingResponse, MobileDevice, MobileHomeResponse } from './src/types';
+import {
+  formatMoney,
+  formatPhoneDisplay,
+  formatPhoneInput,
+  formatRelativePlan,
+  getPhoneInputHint,
+  isPhoneInputValid,
+  normalizePhoneToE164,
+} from './src/lib/phone';
+import type { FriendsResponse, MobileBillingResponse, MobileContact, MobileDevice, MobileHomeResponse } from './src/types';
 
 type AuthMode = 'signIn' | 'signUp';
-type Tab = 'home' | 'devices' | 'family' | 'billing' | 'account' | 'debug';
+
+type Tab = 'devices' | 'contacts' | 'friends' | 'lines' | 'settings';
 
 type TestResult = {
   name: string;
@@ -32,6 +49,83 @@ type TestResult = {
   body?: unknown;
   error?: string;
 };
+
+type ContactDraft = {
+  name: string;
+  phone: string;
+  type: 'phone_number' | 'ring_ring_friend';
+  friendDeviceId: string;
+};
+
+type FriendDeviceOption = {
+  id: string;
+  name: string;
+  sipUsername: string | null;
+  friendshipId: string;
+  friendEmail: string;
+};
+
+type ContactRecord = {
+  id: string;
+  device_id: string | null;
+  name: string;
+  phone_number: string | null;
+  quick_dial_slot: number | null;
+  contact_type: string | null;
+  sip_username: string | null;
+};
+
+const TAB_ITEMS: Array<{ id: Tab; label: string; icon: ComponentProps<typeof Ionicons>['name'] }> = [
+  { id: 'devices', label: 'Devices', icon: 'grid-outline' },
+  { id: 'contacts', label: 'Contacts', icon: 'book-outline' },
+  { id: 'friends', label: 'Friends', icon: 'people-outline' },
+  { id: 'lines', label: 'Phone Lines', icon: 'call-outline' },
+  { id: 'settings', label: 'Settings', icon: 'settings-outline' },
+];
+
+function getContactDestination(contact: MobileContact) {
+  if (contact.phoneNumber) {
+    return formatPhoneDisplay(contact.phoneNumber);
+  }
+
+  if (contact.sipUsername) {
+    return contact.contactType === 'ring_ring_friend' ? 'Ring Ring friend line' : contact.sipUsername;
+  }
+
+  return 'Private line';
+}
+
+function getContactTypeLabel(contact: MobileContact) {
+  return contact.contactType === 'ring_ring_friend' ? 'Ring Ring friend' : 'Phone contact';
+}
+
+function getDeviceReadinessLabel(device: MobileDevice) {
+  if (device.sipUsername || device.provisioningStatus === 'success') {
+    return 'Line ready';
+  }
+
+  if (device.provisioningStatus === 'failed') {
+    return 'Provisioning needs attention';
+  }
+
+  if (device.provisioningStatus === 'pending') {
+    return 'Provisioning in progress';
+  }
+
+  return 'Provisioning still pending';
+}
+
+function mapContactRecord(record: ContactRecord): MobileContact {
+  return {
+    id: record.id,
+    deviceId: record.device_id,
+    name: record.name,
+    phoneNumber: record.phone_number,
+    quickDialSlot: record.quick_dial_slot,
+    contactType: record.contact_type,
+    sipUsername: record.sip_username,
+  };
+}
 
 function SectionCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
@@ -83,7 +177,18 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-function DeviceCard({ device }: { device: MobileDevice }) {
+function DeviceCard({ device, expanded = false }: { device: MobileDevice; expanded?: boolean }) {
+  const quickDialSlots = Array.from({ length: 9 }, (_, index) => {
+    const slot = index + 1;
+
+    return {
+      slot,
+      contact: device.contacts.find((contact) => contact.quickDialSlot === slot) ?? null,
+    };
+  });
+
+  const assignedQuickDialCount = quickDialSlots.filter((entry) => entry.contact).length;
+
   return (
     <View style={styles.listCard}>
       <View style={styles.rowBetween}>
@@ -97,20 +202,67 @@ function DeviceCard({ device }: { device: MobileDevice }) {
       <Text style={styles.listBody}>
         {device.phoneNumber ? formatPhoneDisplay(device.phoneNumber) : 'No assigned number yet'}
       </Text>
-      <Text style={styles.mutedLine}>
-        {device.sipUsername ? `Line ready: ${device.sipUsername}` : 'Provisioning still pending'}
-      </Text>
+      <Text style={styles.mutedLine}>{getDeviceReadinessLabel(device)}</Text>
       <Text style={styles.mutedLine}>
         {device.contacts.length} saved contact{device.contacts.length === 1 ? '' : 's'}
       </Text>
 
-      {device.contacts.length > 0 ? (
+      {expanded ? (
+        <>
+          <View style={styles.deviceSection}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionLabel}>Quick dial</Text>
+              <Text style={styles.sectionMeta}>{assignedQuickDialCount}/9 assigned</Text>
+            </View>
+
+            <View style={styles.quickDialGrid}>
+              {quickDialSlots.map(({ slot, contact }) => (
+                <View key={slot} style={[styles.quickDialSlot, contact ? styles.quickDialSlotFilled : null]}>
+                  <Text style={styles.quickDialNumber}>{slot}</Text>
+                  <Text style={styles.quickDialName}>{contact?.name || 'Empty'}</Text>
+                  <Text style={styles.quickDialValue}>{contact ? getContactDestination(contact) : 'Unassigned'}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.deviceSection}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionLabel}>Trusted contacts</Text>
+              <Text style={styles.sectionMeta}>{device.contacts.length} total</Text>
+            </View>
+
+            {device.contacts.length > 0 ? (
+              <View style={styles.contactList}>
+                {device.contacts.map((contact) => (
+                  <View key={contact.id} style={styles.contactCardRow}>
+                    <View style={styles.contactPrimary}>
+                      <View style={styles.rowGapSmall}>
+                        <Text style={styles.contactName}>{contact.name}</Text>
+                        <Text style={styles.smallBadge}>{getContactTypeLabel(contact)}</Text>
+                      </View>
+                      <Text style={styles.contactNumber}>{getContactDestination(contact)}</Text>
+                    </View>
+                    <Text style={styles.quickDialBadge}>
+                      {contact.quickDialSlot ? `Key ${contact.quickDialSlot}` : 'Saved only'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noteText}>No trusted contacts are assigned to this line yet.</Text>
+            )}
+          </View>
+
+          <Text style={styles.noteText}>Quick dial and trusted contact edits still happen in the full web dashboard.</Text>
+        </>
+      ) : device.contacts.length > 0 ? (
         <View style={styles.contactList}>
           {device.contacts.slice(0, 3).map((contact) => (
             <View key={contact.id} style={styles.contactRow}>
               <Text style={styles.contactName}>{contact.name}</Text>
               <Text style={styles.contactNumber}>
-                {contact.phoneNumber ? formatPhoneDisplay(contact.phoneNumber) : contact.sipUsername || 'Private line'}
+                {getContactDestination(contact)}
               </Text>
             </View>
           ))}
@@ -132,7 +284,7 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<Tab>('home');
+  const [activeTab, setActiveTab] = useState<Tab>('devices');
   const [loadingData, setLoadingData] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -141,6 +293,15 @@ export default function App() {
   const [billingData, setBillingData] = useState<MobileBillingResponse | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [selectedContactsDeviceId, setSelectedContactsDeviceId] = useState<string | null>(null);
+  const [contactDraft, setContactDraft] = useState<ContactDraft>({
+    name: '',
+    phone: '',
+    type: 'phone_number',
+    friendDeviceId: '',
+  });
+  const [contactsBusy, setContactsBusy] = useState(false);
+  const [selectedQuickDialContactId, setSelectedQuickDialContactId] = useState<string | null>(null);
 
   const [testResults, setTestResults] = useState<TestResult[]>([
     { name: 'Supabase session', status: 'idle' },
@@ -149,6 +310,45 @@ export default function App() {
     { name: 'GET /api/friends', status: 'idle' },
   ]);
   const [testsBusy, setTestsBusy] = useState(false);
+
+  const devices = homeData?.devices ?? [];
+  const friendships = friendsData?.friendships ?? [];
+  const friendDeviceOptions: FriendDeviceOption[] = friendships.flatMap((friendship) =>
+    (friendship.friendDevices ?? []).map((device) => ({
+      id: device.id,
+      name: device.name,
+      sipUsername: device.sip_username ?? null,
+      friendshipId: friendship.id,
+      friendEmail: friendship.friendEmail || '',
+    }))
+  );
+
+  const selectedContactsDevice = devices.find((device) => device.id === selectedContactsDeviceId) ?? devices[0] ?? null;
+
+  useEffect(() => {
+    if (!devices.length) {
+      setSelectedContactsDeviceId(null);
+      return;
+    }
+
+    setSelectedContactsDeviceId((current) => {
+      if (current && devices.some((device) => device.id === current)) {
+        return current;
+      }
+
+      return devices[0].id;
+    });
+  }, [devices]);
+
+  useEffect(() => {
+    if (!selectedQuickDialContactId || !selectedContactsDevice) {
+      return;
+    }
+
+    if (!selectedContactsDevice.contacts.some((contact) => contact.id === selectedQuickDialContactId)) {
+      setSelectedQuickDialContactId(null);
+    }
+  }, [selectedContactsDevice, selectedQuickDialContactId]);
 
   async function loadAll(accessToken: string, asRefresh = false) {
     if (asRefresh) {
@@ -169,8 +369,15 @@ export default function App() {
       setHomeData(nextHome);
       setFriendsData(nextFriends);
       setBillingData(nextBilling);
+      setDataError(null);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to load your account.';
+      let message = error instanceof Error ? error.message : 'Unable to load your account.';
+
+      if (error instanceof MobileApiError) {
+        const source = error.path.replace('/api/', '').replace(/\//g, ' > ');
+        message = `${source}${error.status ? ` (${error.status})` : ''}: ${error.message}`;
+      }
+
       setDataError(message);
     } finally {
       setRefreshing(false);
@@ -203,7 +410,7 @@ export default function App() {
         setHomeData(null);
         setFriendsData(null);
         setBillingData(null);
-        setActiveTab('home');
+        setActiveTab('devices');
       }
     });
 
@@ -295,6 +502,176 @@ export default function App() {
     }
 
     await supabase.auth.signOut();
+  }
+
+  async function refreshMobileData() {
+    if (!session?.access_token) {
+      return;
+    }
+
+    await loadAll(session.access_token, true);
+  }
+
+  function updateDeviceContacts(deviceId: string, updater: (contacts: MobileContact[]) => MobileContact[]) {
+    setHomeData((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextDevices = current.devices.map((device) => {
+        if (device.id !== deviceId) {
+          return device;
+        }
+
+        return {
+          ...device,
+          contacts: updater(device.contacts),
+        };
+      });
+
+      return {
+        ...current,
+        devices: nextDevices,
+        summary: {
+          ...current.summary,
+          contactCount: nextDevices.reduce((count, device) => count + device.contacts.length, 0),
+        },
+      };
+    });
+  }
+
+  async function handleAddContact() {
+    if (!supabase || !selectedContactsDevice || !session?.user.id) {
+      return;
+    }
+
+    if (!contactDraft.name.trim()) {
+      Alert.alert('Missing name', 'Add a contact name before saving.');
+      return;
+    }
+
+    const friendDevice = friendDeviceOptions.find((device) => device.id === contactDraft.friendDeviceId) ?? null;
+    const normalizedPhone = contactDraft.type === 'phone_number' ? normalizePhoneToE164(contactDraft.phone) : null;
+
+    if (contactDraft.type === 'phone_number' && !normalizedPhone) {
+      Alert.alert('Invalid number', 'Enter a valid phone number before saving.');
+      return;
+    }
+
+    if (contactDraft.type === 'ring_ring_friend' && !friendDevice) {
+      Alert.alert('Select a friend device', 'Choose a connected Ring Ring device for this contact.');
+      return;
+    }
+
+    setContactsBusy(true);
+
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert({
+        device_id: selectedContactsDevice.id,
+        user_id: session.user.id,
+        name: contactDraft.name.trim(),
+        contact_type: contactDraft.type,
+        phone_number: normalizedPhone,
+        sip_username: contactDraft.type === 'ring_ring_friend' ? friendDevice?.sipUsername ?? null : null,
+        friend_device_id: contactDraft.type === 'ring_ring_friend' ? friendDevice?.id ?? null : null,
+        friendship_id: contactDraft.type === 'ring_ring_friend' ? friendDevice?.friendshipId ?? null : null,
+        quick_dial_slot: null,
+      })
+      .select('id, device_id, name, phone_number, quick_dial_slot, contact_type, sip_username')
+      .single<ContactRecord>();
+
+    setContactsBusy(false);
+
+    if (error) {
+      Alert.alert('Could not add contact', error.message);
+      return;
+    }
+
+    setContactDraft({ name: '', phone: '', type: 'phone_number', friendDeviceId: '' });
+    setDataError(null);
+
+    if (data) {
+      updateDeviceContacts(selectedContactsDevice.id, (contacts) => [...contacts, mapContactRecord(data)]);
+    }
+  }
+
+  async function handleDeleteContact(contactId: string) {
+    if (!supabase) {
+      return;
+    }
+
+    setContactsBusy(true);
+    const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+    setContactsBusy(false);
+
+    if (error) {
+      Alert.alert('Could not remove contact', error.message);
+      return;
+    }
+
+    if (selectedQuickDialContactId === contactId) {
+      setSelectedQuickDialContactId(null);
+    }
+
+    setDataError(null);
+    updateDeviceContacts(selectedContactsDevice?.id ?? '', (contacts) => contacts.filter((contact) => contact.id !== contactId));
+  }
+
+  async function assignQuickDial(contactId: string, slot: number | null) {
+    if (!supabase || !selectedContactsDevice) {
+      return;
+    }
+
+    setContactsBusy(true);
+
+    if (slot !== null) {
+      const displacedContact = selectedContactsDevice.contacts.find(
+        (contact) => contact.quickDialSlot === slot && contact.id !== contactId
+      );
+
+      if (displacedContact) {
+        const { error: clearError } = await supabase.from('contacts').update({ quick_dial_slot: null }).eq('id', displacedContact.id);
+
+        if (clearError) {
+          setContactsBusy(false);
+          Alert.alert('Could not update quick dial', clearError.message);
+          return;
+        }
+      }
+    }
+
+    const { error } = await supabase.from('contacts').update({ quick_dial_slot: slot }).eq('id', contactId);
+    setContactsBusy(false);
+
+    if (error) {
+      Alert.alert('Could not update quick dial', error.message);
+      return;
+    }
+
+    setSelectedQuickDialContactId(null);
+    setDataError(null);
+    updateDeviceContacts(selectedContactsDevice.id, (contacts) =>
+      contacts.map((contact) => {
+        if (slot !== null && contact.quickDialSlot === slot && contact.id !== contactId) {
+          return { ...contact, quickDialSlot: null };
+        }
+
+        if (contact.id === contactId) {
+          return { ...contact, quickDialSlot: slot };
+        }
+
+        return contact;
+      })
+    );
+  }
+
+  async function handleQuickDialSlotPress(slot: number) {
+    if (!selectedQuickDialContactId) {
+      return;
+    }
+
+    await assignQuickDial(selectedQuickDialContactId, slot);
   }
 
   async function runTests() {
@@ -482,43 +859,38 @@ export default function App() {
 
   const summary = homeData?.summary;
   const profile = homeData?.profile;
-  const devices = homeData?.devices ?? [];
-  const friendships = friendsData?.friendships ?? [];
   const invites = friendsData?.sentInvites ?? [];
   const subscriptions = billingData?.subscriptions ?? [];
   const invoices = billingData?.invoices ?? [];
+  const selectedContacts = selectedContactsDevice?.contacts ?? [];
+  const selectedQuickDialContact = selectedContacts.find((contact) => contact.id === selectedQuickDialContactId) ?? null;
+  const selectedQuickDialSlots = Array.from({ length: 9 }, (_, index) => {
+    const slot = index + 1;
+
+    return {
+      slot,
+      contact: selectedContacts.find((contact) => contact.quickDialSlot === slot) ?? null,
+    };
+  });
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
       <View style={styles.page}>
         <View style={styles.header}>
-          <View>
-            <Text style={styles.headerKicker}>Mobile dashboard</Text>
+          <View style={styles.headerCopy}>
+            <View style={styles.brandRow}>
+              <Text style={styles.brandTitle}>Ring Ring Club</Text>
+              <View style={styles.portalBadge}>
+                <Text style={styles.portalBadgeText}>Parent Portal</Text>
+              </View>
+            </View>
             <Text style={styles.headerTitle}>Hello, {session.user.email || 'parent'}.</Text>
           </View>
           <Pressable onPress={() => void handleRefresh()} style={styles.refreshButton}>
             <Text style={styles.refreshButtonText}>{refreshing ? 'Refreshing...' : 'Refresh'}</Text>
           </Pressable>
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabBar}
-        >
-          {(['home', 'devices', 'family', 'billing', 'account', 'debug'] as Tab[]).map((tab) => (
-            <Pressable
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              style={[styles.tabButton, activeTab === tab ? styles.tabButtonActive : null]}
-            >
-              <Text style={[styles.tabButtonText, activeTab === tab ? styles.tabButtonTextActive : null]}>
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         <ScrollView
           contentContainerStyle={styles.content}
@@ -537,9 +909,9 @@ export default function App() {
             </SectionCard>
           ) : null}
 
-          {activeTab === 'home' && homeData ? (
+          {activeTab === 'devices' && homeData ? (
             <>
-              <SectionCard title="Overview" subtitle="A quick snapshot of your Ring Ring Club account.">
+              <SectionCard title="Devices" subtitle="A snapshot of your Ring Ring Club hardware and line status.">
                 <View style={styles.statsGrid}>
                   <StatTile label="Devices" value={summary?.deviceCount ?? 0} />
                   <StatTile label="Saved contacts" value={summary?.contactCount ?? 0} />
@@ -557,10 +929,14 @@ export default function App() {
                   <Text style={styles.keyText}>Phone number</Text>
                   <Text style={styles.valueText}>{profile?.twilioNumber ? formatPhoneDisplay(profile.twilioNumber) : 'None assigned'}</Text>
                 </View>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.keyText}>Two-factor auth</Text>
-                  <Text style={styles.valueText}>{profile?.twoFactorEnabled ? 'Enabled' : 'Off'}</Text>
+              </SectionCard>
+
+              <SectionCard title="Calling features" subtitle="Per-device contacts and one-touch keys live under Devices.">
+                <View style={styles.statsGrid}>
+                  <StatTile label="Trusted contacts" value={summary?.contactCount ?? 0} />
+                  <StatTile label="Quick dial keys" value={devices.reduce((count, device) => count + device.contacts.filter((contact) => contact.quickDialSlot !== null).length, 0)} />
                 </View>
+                <Text style={styles.noteText}>Open Contacts to add trusted contacts and assign quick-dial keys for each line.</Text>
               </SectionCard>
 
               <SectionCard title="Recent devices" subtitle="Your latest configured lines.">
@@ -569,15 +945,174 @@ export default function App() {
             </>
           ) : null}
 
-          {activeTab === 'devices' ? (
-            <SectionCard title="Devices" subtitle="View line readiness, provisioning state, and saved contacts.">
-              {devices.length > 0 ? devices.map((device) => <DeviceCard key={device.id} device={device} />) : <EmptyState title="No devices yet" body="Your native app is connected, but there are no devices on this account yet." />}
-            </SectionCard>
+          {activeTab === 'contacts' ? (
+            devices.length > 0 ? (
+              <>
+                <SectionCard title="Contacts" subtitle="Manage a device’s safe list and assign its quick-dial keys.">
+                  <Text style={styles.noteText}>Choose a device, add trusted contacts, then tap a contact and tap a key to assign it.</Text>
+                  <View style={styles.devicePickerRow}>
+                    {devices.map((device) => (
+                      <Pressable
+                        key={device.id}
+                        onPress={() => setSelectedContactsDeviceId(device.id)}
+                        style={[styles.devicePickerChip, selectedContactsDevice?.id === device.id ? styles.devicePickerChipActive : null]}
+                      >
+                        <Text style={[styles.devicePickerText, selectedContactsDevice?.id === device.id ? styles.devicePickerTextActive : null]}>
+                          {device.name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </SectionCard>
+
+                {selectedContactsDevice ? (
+                  <>
+                    <SectionCard title="Add trusted contact" subtitle={`Safe-list entries for ${selectedContactsDevice.name}.`}>
+                      <View style={styles.toggleRow}>
+                        <Pressable
+                          onPress={() => setContactDraft((current) => ({ ...current, type: 'phone_number', friendDeviceId: '' }))}
+                          style={[styles.toggleChip, contactDraft.type === 'phone_number' ? styles.toggleChipActive : null]}
+                        >
+                          <Text style={[styles.toggleChipText, contactDraft.type === 'phone_number' ? styles.toggleChipTextActive : null]}>
+                            Phone number
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => setContactDraft((current) => ({ ...current, type: 'ring_ring_friend' }))}
+                          style={[styles.toggleChip, contactDraft.type === 'ring_ring_friend' ? styles.toggleChipActive : null]}
+                        >
+                          <Text style={[styles.toggleChipText, contactDraft.type === 'ring_ring_friend' ? styles.toggleChipTextActive : null]}>
+                            Ring Ring friend
+                          </Text>
+                        </Pressable>
+                      </View>
+
+                      <TextInput
+                        onChangeText={(value) => setContactDraft((current) => ({ ...current, name: value }))}
+                        placeholder="Contact name"
+                        placeholderTextColor="#948779"
+                        style={styles.input}
+                        value={contactDraft.name}
+                      />
+
+                      {contactDraft.type === 'phone_number' ? (
+                        <>
+                          <TextInput
+                            keyboardType="phone-pad"
+                            onChangeText={(value) => setContactDraft((current) => ({ ...current, phone: formatPhoneInput(value) }))}
+                            placeholder="(555) 010-1234"
+                            placeholderTextColor="#948779"
+                            style={[styles.input, !isPhoneInputValid(contactDraft.phone) ? styles.inputError : null]}
+                            value={contactDraft.phone}
+                          />
+                          <Text style={[styles.helperText, !isPhoneInputValid(contactDraft.phone) ? styles.helperTextError : null]}>
+                            {getPhoneInputHint(contactDraft.phone, 'Type a number and we will format it for you.')}
+                          </Text>
+                        </>
+                      ) : friendDeviceOptions.length > 0 ? (
+                        <View style={styles.friendDeviceList}>
+                          {friendDeviceOptions.map((device) => (
+                            <Pressable
+                              key={device.id}
+                              onPress={() => setContactDraft((current) => ({ ...current, friendDeviceId: device.id }))}
+                              style={[styles.friendDeviceCard, contactDraft.friendDeviceId === device.id ? styles.friendDeviceCardActive : null]}
+                            >
+                              <Text style={styles.friendDeviceName}>{device.name}</Text>
+                              <Text style={styles.friendDeviceMeta}>{device.friendEmail || 'Connected family'}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.noteText}>No connected family devices are available yet. Use the Friends tab to connect another family first.</Text>
+                      )}
+
+                      <ActionButton
+                        label={contactsBusy ? 'Saving contact...' : 'Add to trusted contacts'}
+                        onPress={() => void handleAddContact()}
+                        disabled={
+                          contactsBusy ||
+                          !contactDraft.name.trim() ||
+                          (contactDraft.type === 'phone_number' ? !normalizePhoneToE164(contactDraft.phone) : !contactDraft.friendDeviceId)
+                        }
+                      />
+                    </SectionCard>
+
+                    <SectionCard title="Trusted contacts" subtitle="Tap a contact to stage it for quick-dial assignment.">
+                      {selectedContacts.length > 0 ? (
+                        <View style={styles.editorList}>
+                          {selectedContacts.map((contact) => (
+                            <View key={contact.id} style={[styles.contactEditorRow, selectedQuickDialContactId === contact.id ? styles.contactEditorRowActive : null]}>
+                              <Pressable style={styles.contactEditorMain} onPress={() => setSelectedQuickDialContactId((current) => current === contact.id ? null : contact.id)}>
+                                <View style={styles.rowBetween}>
+                                  <View style={styles.contactPrimary}>
+                                    <View style={styles.rowGapSmall}>
+                                      <Text style={styles.contactName}>{contact.name}</Text>
+                                      <Text style={styles.smallBadge}>{getContactTypeLabel(contact)}</Text>
+                                    </View>
+                                    <Text style={styles.contactNumber}>{getContactDestination(contact)}</Text>
+                                  </View>
+                                  <Text style={styles.quickDialBadge}>{contact.quickDialSlot ? `Key ${contact.quickDialSlot}` : 'Tap to assign'}</Text>
+                                </View>
+                              </Pressable>
+                              <View style={styles.contactActionRow}>
+                                {contact.quickDialSlot ? (
+                                  <Pressable onPress={() => void assignQuickDial(contact.id, null)} style={styles.inlineActionButton}>
+                                    <Text style={styles.inlineActionText}>Clear key</Text>
+                                  </Pressable>
+                                ) : null}
+                                <Pressable onPress={() => void handleDeleteContact(contact.id)} style={[styles.inlineActionButton, styles.inlineDangerButton]}>
+                                  <Text style={[styles.inlineActionText, styles.inlineDangerText]}>Delete</Text>
+                                </Pressable>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <EmptyState title="No trusted contacts yet" body="Add a phone number or a Ring Ring friend above, then assign it to a quick-dial key if needed." />
+                      )}
+                    </SectionCard>
+
+                    <SectionCard title="Quick dial" subtitle="Tap a contact above, then tap a slot below to assign it.">
+                      <Text style={styles.noteText}>
+                        {selectedQuickDialContact ? `Selected: ${selectedQuickDialContact.name}. Tap any key 1-9 to assign.` : 'Choose a trusted contact first. Drag-and-drop is replaced here with tap-to-assign so it works on phones and in the web preview.'}
+                      </Text>
+                      <View style={styles.quickDialGrid}>
+                        {selectedQuickDialSlots.map(({ slot, contact }) => (
+                          <Pressable
+                            key={slot}
+                            onPress={() => void handleQuickDialSlotPress(slot)}
+                            disabled={!selectedQuickDialContactId || contactsBusy}
+                            style={[
+                              styles.quickDialSlot,
+                              contact ? styles.quickDialSlotFilled : null,
+                              selectedQuickDialContactId ? styles.quickDialSlotSelectable : null,
+                            ]}
+                          >
+                            <Text style={styles.quickDialNumber}>{slot}</Text>
+                            <Text style={styles.quickDialName}>{contact?.name || 'Empty'}</Text>
+                            <Text style={styles.quickDialValue}>{contact ? getContactDestination(contact) : selectedQuickDialContactId ? 'Tap to assign' : 'Unassigned'}</Text>
+                            {contact ? (
+                              <Pressable onPress={() => void assignQuickDial(contact.id, null)} style={styles.clearKeyButton}>
+                                <Text style={styles.clearKeyButtonText}>Clear</Text>
+                              </Pressable>
+                            ) : null}
+                          </Pressable>
+                        ))}
+                      </View>
+                    </SectionCard>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <SectionCard title="Contacts" subtitle="Manage a device’s safe list and assign its quick-dial keys.">
+                <EmptyState title="No devices yet" body="Your native app is connected, but there are no devices on this account yet." />
+              </SectionCard>
+            )
           ) : null}
 
-          {activeTab === 'family' ? (
+          {activeTab === 'friends' ? (
             <>
-              <SectionCard title="Family connections" subtitle="Create a parent-approved invite link and keep track of connected families.">
+              <SectionCard title="Friends" subtitle="Create a parent-approved invite link and keep track of connected families.">
                 <ActionButton label={inviteBusy ? 'Creating invite...' : 'Create invite link'} onPress={() => void handleCreateInvite()} disabled={inviteBusy} />
                 <Text style={styles.noteText}>The mobile app shares the same invite and approval system as the web dashboard.</Text>
               </SectionCard>
@@ -608,9 +1143,9 @@ export default function App() {
             </>
           ) : null}
 
-          {activeTab === 'billing' ? (
+          {activeTab === 'lines' ? (
             <>
-              <SectionCard title="Billing" subtitle="Subscription details and invoice history.">
+              <SectionCard title="Phone lines" subtitle="Subscription details, billing access, and line information.">
                 <View style={styles.rowBetween}>
                   <Text style={styles.keyText}>Current plan</Text>
                   <Text style={styles.valueText}>{formatRelativePlan(billingData?.plan || 'free')}</Text>
@@ -620,10 +1155,10 @@ export default function App() {
                   <Text style={styles.valueText}>{billingData?.phoneNumber ? formatPhoneDisplay(billingData.phoneNumber) : 'None assigned'}</Text>
                 </View>
                 <ActionButton label={portalBusy ? 'Opening...' : 'Open billing portal'} onPress={() => void handleOpenPortal()} variant="secondary" disabled={portalBusy} />
-                <Text style={styles.noteText}>Payment method changes happen in Stripe’s secure browser flow.</Text>
+                <Text style={styles.noteText}>Adding another line and payment changes still use Stripe’s secure browser flow.</Text>
               </SectionCard>
 
-              <SectionCard title="Subscriptions" subtitle="Active and scheduled Stripe subscriptions.">
+              <SectionCard title="Active lines" subtitle="Active and scheduled Stripe subscriptions.">
                 {subscriptions.length > 0 ? subscriptions.map((subscription) => (
                   <View key={subscription.id} style={styles.listCard}>
                     <View style={styles.rowBetween}>
@@ -637,7 +1172,7 @@ export default function App() {
                 )) : <EmptyState title="No subscriptions" body="This account does not have a paid Stripe subscription yet." />}
               </SectionCard>
 
-              <SectionCard title="Invoices" subtitle="Recent receipts from Stripe.">
+              <SectionCard title="Order history" subtitle="Recent receipts from Stripe.">
                 {invoices.length > 0 ? invoices.map((invoice) => (
                   <Pressable
                     key={invoice.id}
@@ -651,14 +1186,14 @@ export default function App() {
                     <Text style={styles.mutedLine}>{new Date(invoice.date * 1000).toLocaleDateString()}</Text>
                     <Text style={styles.mutedLine}>{invoice.status || 'Unknown status'}</Text>
                   </Pressable>
-                )) : <EmptyState title="No invoices yet" body="Your receipts will appear here after the first successful charge." />}
+                )) : <EmptyState title="No orders yet" body="Receipts will appear here after the first successful charge." />}
               </SectionCard>
             </>
           ) : null}
 
-          {activeTab === 'account' ? (
+          {activeTab === 'settings' ? (
             <>
-              <SectionCard title="Account" subtitle="Core identity and account safety details.">
+              <SectionCard title="Settings" subtitle="Core identity, account security, and line defaults.">
                 <View style={styles.rowBetween}>
                   <Text style={styles.keyText}>Email</Text>
                   <Text style={styles.valueText}>{session.user.email || 'Unknown'}</Text>
@@ -668,9 +1203,17 @@ export default function App() {
                   <Text style={styles.valueText}>{formatRelativePlan(profile?.plan || 'free')}</Text>
                 </View>
                 <View style={styles.rowBetween}>
-                  <Text style={styles.keyText}>2FA</Text>
-                  <Text style={styles.valueText}>{profile?.twoFactorEnabled ? 'Enabled on web' : 'Off'}</Text>
+                  <Text style={styles.keyText}>Primary line</Text>
+                  <Text style={styles.valueText}>{profile?.twilioNumber ? formatPhoneDisplay(profile.twilioNumber) : 'None assigned'}</Text>
                 </View>
+              </SectionCard>
+
+              <SectionCard title="Security" subtitle="Authentication settings are managed in the parent dashboard.">
+                <View style={styles.rowBetween}>
+                  <Text style={styles.keyText}>Two-factor auth</Text>
+                  <Text style={styles.valueText}>{profile?.twoFactorEnabled ? 'Enabled' : 'Off'}</Text>
+                </View>
+                <Text style={styles.noteText}>Use the web app to turn 2FA on or off and complete recovery steps.</Text>
               </SectionCard>
 
               <SectionCard title="Emergency address" subtitle="Pulled from the same profile used by the web dashboard.">
@@ -683,12 +1226,8 @@ export default function App() {
                 <Text style={styles.noteText}>Device edits, provisioning tools, and admin actions remain in the web app for now.</Text>
                 <ActionButton label="Sign out" onPress={() => void handleSignOut()} variant="secondary" />
               </SectionCard>
-            </>
-          ) : null}
 
-          {activeTab === 'debug' ? (
-            <>
-              <SectionCard title="API Tester" subtitle="Run all mobile API checks and see raw results.">
+              <SectionCard title="Diagnostics" subtitle="Run mobile API checks without adding a separate top-level debug tab.">
                 <ActionButton
                   label={testsBusy ? 'Running tests...' : 'Run all tests'}
                   onPress={() => void runTests()}
@@ -745,6 +1284,29 @@ export default function App() {
             </>
           ) : null}
         </ScrollView>
+
+        <View style={styles.bottomTabBar}>
+          {TAB_ITEMS.map((tab) => {
+            const active = activeTab === tab.id;
+
+            return (
+              <Pressable
+                key={tab.id}
+                onPress={() => setActiveTab(tab.id)}
+                style={styles.bottomTabButton}
+              >
+                <View style={[styles.bottomTabIconWrap, active ? styles.bottomTabIconWrapActive : null]}>
+                  <Ionicons
+                    name={active ? tab.icon.replace('-outline', '') as ComponentProps<typeof Ionicons>['name'] : tab.icon}
+                    size={20}
+                    color={active ? '#c4531a' : '#7b6d60'}
+                  />
+                </View>
+                <Text style={[styles.bottomTabLabel, active ? styles.bottomTabLabelActive : null]}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -852,6 +1414,9 @@ const styles = StyleSheet.create({
     color: '#29211b',
     backgroundColor: '#fffdfa',
   },
+  inputError: {
+    borderColor: '#f0a5a5',
+  },
   button: {
     borderRadius: 16,
     paddingVertical: 14,
@@ -885,18 +1450,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerKicker: {
-    color: '#8d7d6d',
-    fontSize: 13,
+  headerCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  brandTitle: {
+    color: '#29211b',
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  portalBadge: {
+    borderRadius: 999,
+    backgroundColor: '#e9f6ff',
+    borderWidth: 1,
+    borderColor: '#b9dff5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  portalBadgeText: {
+    color: '#24567a',
+    fontSize: 11,
     fontWeight: '700',
-    textTransform: 'uppercase',
     letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   headerTitle: {
     color: '#29211b',
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 2,
+    fontSize: 16,
+    fontWeight: '700',
   },
   refreshButton: {
     paddingHorizontal: 14,
@@ -911,34 +1499,97 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  tabBar: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 10,
-  },
-  tabButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: '#f4e8db',
-  },
-  tabButtonActive: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e6d7c6',
-  },
-  tabButtonText: {
-    color: '#7b6d60',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tabButtonTextActive: {
-    color: '#29211b',
-  },
   content: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 24,
     gap: 16,
+  },
+  bottomTabBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#ead8c6',
+    backgroundColor: '#fffdfa',
+  },
+  bottomTabButton: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 4,
+  },
+  bottomTabIconWrap: {
+    width: 36,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  bottomTabIconWrapActive: {
+    backgroundColor: '#fff1e8',
+  },
+  bottomTabLabel: {
+    color: '#7b6d60',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  bottomTabLabelActive: {
+    color: '#c4531a',
+  },
+  devicePickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  devicePickerChip: {
+    borderRadius: 999,
+    backgroundColor: '#fff7ef',
+    borderWidth: 1,
+    borderColor: '#ead8c6',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  devicePickerChipActive: {
+    backgroundColor: '#c4531a',
+    borderColor: '#c4531a',
+  },
+  devicePickerText: {
+    color: '#6c6157',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  devicePickerTextActive: {
+    color: '#ffffff',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  toggleChip: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e6d7c6',
+    backgroundColor: '#fff7ef',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  toggleChipActive: {
+    backgroundColor: '#c4531a',
+    borderColor: '#c4531a',
+  },
+  toggleChipText: {
+    color: '#5b5046',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  toggleChipTextActive: {
+    color: '#ffffff',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -992,6 +1643,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#fffaf4',
     padding: 16,
+    borderWidth: 1,
+    borderColor: '#efe4d7',
   },
   listRow: {
     borderRadius: 16,
@@ -1019,6 +1672,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  helperText: {
+    color: '#7b6d60',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  helperTextError: {
+    color: '#b42318',
+  },
   badge: {
     color: '#8b5a2b',
     backgroundColor: '#f8e9d7',
@@ -1044,10 +1705,116 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+  editorList: {
+    gap: 10,
+  },
+  deviceSection: {
+    gap: 10,
+    marginTop: 8,
+  },
+  sectionLabel: {
+    color: '#29211b',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  sectionMeta: {
+    color: '#7b6d60',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickDialGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickDialSlot: {
+    width: '31%',
+    minHeight: 92,
+    borderRadius: 16,
+    padding: 10,
+    backgroundColor: '#f8efe6',
+    borderWidth: 1,
+    borderColor: '#ead8c6',
+    gap: 4,
+  },
+  quickDialSlotFilled: {
+    backgroundColor: '#fff7ef',
+  },
+  quickDialSlotSelectable: {
+    borderColor: '#c4531a',
+  },
+  quickDialNumber: {
+    color: '#c4531a',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  quickDialName: {
+    color: '#29211b',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  quickDialValue: {
+    color: '#6c6157',
+    fontSize: 12,
+    lineHeight: 16,
+  },
   contactRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  contactCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    backgroundColor: '#fffdfa',
+    borderWidth: 1,
+    borderColor: '#efe4d7',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  contactEditorRow: {
+    borderRadius: 18,
+    backgroundColor: '#fffaf4',
+    borderWidth: 1,
+    borderColor: '#efe4d7',
+    padding: 12,
+    gap: 10,
+  },
+  contactEditorRowActive: {
+    borderColor: '#c4531a',
+    backgroundColor: '#fff2e8',
+  },
+  contactEditorMain: {
+    gap: 6,
+  },
+  contactPrimary: {
+    flex: 1,
+    gap: 4,
+  },
+  contactActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  inlineActionButton: {
+    borderRadius: 999,
+    backgroundColor: '#f4e8db',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  inlineDangerButton: {
+    backgroundColor: '#fff0f0',
+  },
+  inlineActionText: {
+    color: '#5b5046',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  inlineDangerText: {
+    color: '#b42318',
   },
   contactName: {
     color: '#4d433a',
@@ -1060,6 +1827,64 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flexShrink: 1,
     textAlign: 'right',
+  },
+  smallBadge: {
+    color: '#8b5a2b',
+    backgroundColor: '#f8e9d7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  quickDialBadge: {
+    color: '#5b5046',
+    backgroundColor: '#f4e8db',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  friendDeviceList: {
+    gap: 8,
+  },
+  friendDeviceCard: {
+    borderRadius: 14,
+    backgroundColor: '#fff7ef',
+    borderWidth: 1,
+    borderColor: '#ead8c6',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 4,
+  },
+  friendDeviceCardActive: {
+    borderColor: '#c4531a',
+    backgroundColor: '#fff2e8',
+  },
+  friendDeviceName: {
+    color: '#29211b',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  friendDeviceMeta: {
+    color: '#7b6d60',
+    fontSize: 12,
+  },
+  clearKeyButton: {
+    marginTop: 6,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#f4e8db',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  clearKeyButtonText: {
+    color: '#5b5046',
+    fontSize: 11,
+    fontWeight: '800',
   },
   emptyState: {
     paddingVertical: 18,

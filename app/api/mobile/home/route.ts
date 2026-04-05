@@ -3,6 +3,104 @@ import { prisma } from '@/lib/prisma';
 import { corsPreflight, jsonWithCors } from '@/lib/api-cors';
 import { getMobileRequestUser } from '@/lib/mobile-auth';
 
+async function loadOptionalProfileFields(userId: string) {
+  try {
+    const profile = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        e911Name: true,
+        e911Street: true,
+        e911City: true,
+        e911State: true,
+        e911Zip: true,
+        twoFactorEnabled: true,
+      },
+    });
+
+    return {
+      twoFactorEnabled: profile?.twoFactorEnabled ?? false,
+      e911: {
+        name: profile?.e911Name ?? null,
+        street: profile?.e911Street ?? null,
+        city: profile?.e911City ?? null,
+        state: profile?.e911State ?? null,
+        zip: profile?.e911Zip ?? null,
+      },
+    };
+  } catch (error) {
+    console.warn('mobile/home optional profile fields unavailable', error);
+
+    return {
+      twoFactorEnabled: false,
+      e911: {
+        name: null,
+        street: null,
+        city: null,
+        state: null,
+        zip: null,
+      },
+    };
+  }
+}
+
+async function loadOptionalDevicePresentationFields(userId: string) {
+  try {
+    const devices = await prisma.device.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        macAddress: true,
+        adapterType: true,
+        provisioningStatus: true,
+      },
+    });
+
+    return new Map(devices.map((device) => [device.id, device]));
+  } catch (error) {
+    console.warn('mobile/home optional device presentation fields unavailable', error);
+    return new Map();
+  }
+}
+
+async function loadOptionalDevicePolicyFields(userId: string) {
+  try {
+    const devices = await prisma.device.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        quietHoursEnabled: true,
+        quietHoursStart: true,
+        quietHoursEnd: true,
+        usageCapEnabled: true,
+        usageCapMinutes: true,
+      },
+    });
+
+    return new Map(devices.map((device) => [device.id, device]));
+  } catch (error) {
+    console.warn('mobile/home optional device policy fields unavailable', error);
+    return new Map();
+  }
+}
+
+async function loadOptionalContactFields(userId: string) {
+  try {
+    const contacts = await prisma.contact.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        contactType: true,
+        sipUsername: true,
+      },
+    });
+
+    return new Map(contacts.map((contact) => [contact.id, contact]));
+  } catch (error) {
+    console.warn('mobile/home optional contact fields unavailable', error);
+    return new Map();
+  }
+}
+
 export function OPTIONS() {
   return corsPreflight();
 }
@@ -24,12 +122,6 @@ export async function GET(req: NextRequest) {
         areaCode: true,
         stripeCustomerId: true,
         stripeSubId: true,
-        e911Name: true,
-        e911Street: true,
-        e911City: true,
-        e911State: true,
-        e911Zip: true,
-        twoFactorEnabled: true,
       },
     }),
     prisma.device.findMany({
@@ -41,15 +133,7 @@ export async function GET(req: NextRequest) {
         phoneNumber: true,
         isOnline: true,
         sipUsername: true,
-        macAddress: true,
-        adapterType: true,
         createdAt: true,
-        quietHoursEnabled: true,
-        quietHoursStart: true,
-        quietHoursEnd: true,
-        usageCapEnabled: true,
-        usageCapMinutes: true,
-        provisioningStatus: true,
       },
     }),
     prisma.contact.findMany({
@@ -61,8 +145,6 @@ export async function GET(req: NextRequest) {
         name: true,
         phoneNumber: true,
         quickDialSlot: true,
-        contactType: true,
-        sipUsername: true,
       },
     }),
     prisma.friendship.count({
@@ -72,10 +154,30 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const contactsByDeviceId = new Map<string, typeof contacts>();
+  const [profileExtras, devicePresentationFields, devicePolicyFields, contactFields] = await Promise.all([
+    loadOptionalProfileFields(authUser.id),
+    loadOptionalDevicePresentationFields(authUser.id),
+    loadOptionalDevicePolicyFields(authUser.id),
+    loadOptionalContactFields(authUser.id),
+  ]);
+
+  const contactsByDeviceId = new Map<
+    string,
+    Array<
+      (typeof contacts)[number] & {
+        contactType: string | null;
+        sipUsername: string | null;
+      }
+    >
+  >();
   for (const contact of contacts) {
+    const optionalContact = contactFields.get(contact.id);
     const list = contactsByDeviceId.get(contact.deviceId ?? '') ?? [];
-    list.push(contact);
+    list.push({
+      ...contact,
+      contactType: optionalContact?.contactType ?? 'phone_number',
+      sipUsername: optionalContact?.sipUsername ?? null,
+    });
     contactsByDeviceId.set(contact.deviceId ?? '', list);
   }
 
@@ -88,32 +190,31 @@ export async function GET(req: NextRequest) {
       areaCode: profile?.areaCode ?? null,
       stripeCustomerId: profile?.stripeCustomerId ?? null,
       stripeSubscriptionId: profile?.stripeSubId ?? null,
-      twoFactorEnabled: profile?.twoFactorEnabled ?? false,
-      e911: {
-        name: profile?.e911Name ?? null,
-        street: profile?.e911Street ?? null,
-        city: profile?.e911City ?? null,
-        state: profile?.e911State ?? null,
-        zip: profile?.e911Zip ?? null,
-      },
+      twoFactorEnabled: profileExtras.twoFactorEnabled,
+      e911: profileExtras.e911,
     },
-    devices: devices.map((device) => ({
-      id: device.id,
-      name: device.name,
-      phoneNumber: device.phoneNumber,
-      isOnline: device.isOnline,
-      sipUsername: device.sipUsername,
-      macAddress: device.macAddress,
-      adapterType: device.adapterType,
-      createdAt: device.createdAt,
-      quietHoursEnabled: device.quietHoursEnabled,
-      quietHoursStart: device.quietHoursStart,
-      quietHoursEnd: device.quietHoursEnd,
-      usageCapEnabled: device.usageCapEnabled,
-      usageCapMinutes: device.usageCapMinutes,
-      provisioningStatus: device.provisioningStatus,
-      contacts: contactsByDeviceId.get(device.id) ?? [],
-    })),
+    devices: devices.map((device) => {
+      const presentation = devicePresentationFields.get(device.id);
+      const policy = devicePolicyFields.get(device.id);
+
+      return {
+        id: device.id,
+        name: device.name,
+        phoneNumber: device.phoneNumber,
+        isOnline: device.isOnline,
+        sipUsername: device.sipUsername,
+        macAddress: presentation?.macAddress ?? null,
+        adapterType: presentation?.adapterType ?? null,
+        createdAt: device.createdAt,
+        quietHoursEnabled: policy?.quietHoursEnabled ?? false,
+        quietHoursStart: policy?.quietHoursStart ?? null,
+        quietHoursEnd: policy?.quietHoursEnd ?? null,
+        usageCapEnabled: policy?.usageCapEnabled ?? false,
+        usageCapMinutes: policy?.usageCapMinutes ?? null,
+        provisioningStatus: presentation?.provisioningStatus ?? null,
+        contacts: contactsByDeviceId.get(device.id) ?? [],
+      };
+    }),
     summary: {
       deviceCount: devices.length,
       contactCount: contacts.length,

@@ -3,9 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { getProviderForDevice } from '@/lib/voip';
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const from = formData.get('From') as string;
-  const to = formData.get('To') as string;
+  const body = await req.text();
+  const params = new URLSearchParams(body);
+  const from = params.get('From') || '';
+  const to = params.get('To') || '';
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -18,9 +18,10 @@ function normalizeToE164(raw: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const From = (formData.get('From') as string) || '';
-    const To = (formData.get('To') as string) || '';
+    const body = await req.text();
+    const params = new URLSearchParams(body);
+    const From = params.get('From') ?? '';
+    const To = params.get('To') ?? '';
 
     console.log(`📞 Call from ${From} to ${To}`);
 
