@@ -1,5 +1,5 @@
 # Ring Ring Club — Website Style Guide & Layout Reference
-*Internal reference document. Last updated: April 2026.*
+*Internal reference document. Last updated: April 5, 2026.*
 
 ---
 
@@ -67,7 +67,7 @@
 ### Items (left to right)
 1. **Ring Ring Club** (logo/wordmark — left)
 2. Home
-3. Our (analog) story
+3. Our (analog) story *(= About Us)*
 4. How It Works
 5. The Ring Ring Shop
 6. Pricing
@@ -227,21 +227,23 @@
 
 | The Club | Support | Account |
 |---|---|---|
-| Our Analog Story → ringringclub.com/our-story | FAQs → ringringclub.com/faq | Log In → ringringclub.com/login |
-| How It Works → ringringclub.com/how-it-works | Setup Guides → ringringclub.com/setup | Sign Up → ringringclub.com/Join |
-| The Shop → ringringclub.com/shop | Contact Us → ringringclub.com/contact | Invite a Neighbor → ringringclub.com/invite |
-| Pricing → ringringclub.com/pricing | | |
-| Community → ringringclub.com/community | | |
+| Our (analog) story *(About Us)* → `#` (not yet built) | FAQs → `/faq` | Log In → `/login` |
+| How It Works → `#` (not yet built) | Setup Guides → `/setup` | Sign Up → `/buy` |
+| The Shop → `#` (not yet built) | Contact Us → `/contact` | Invite a Neighbor → `/invite` |
+| Pricing → `#` (not yet built) | | |
+| Community → `/community` | | |
 
 ### Bottom horizontal strip (not a column — inline, pipe-separated):
 `Terms of Service | Privacy Policy | E911 Disclosure | Refund Policy`
+
+All 4 legal links are wired to real routes: `/terms` | `/privacy` | `/e911` | `/refunds`
 
 ### Footer details:
 - Background: `stone-900`
 - Wordmark: **Ring Ring Club** (white, font-black)
 - Tagline: "The safe, screen-free home phone for kids. Built by parents, outside Philadelphia."
 - Email: support@ringringphone.com
-- Copyright line: © 2026 Ring Ring Club. All rights reserved.
+- Copyright line: © 2026 Ring Ring Club (CP Impact LLC). All rights reserved.
 - The old "Legal & Safety" column has been removed — those links now live in the bottom strip.
 - The old italic attribution line has been removed.
 
@@ -256,17 +258,18 @@
 | Customer Dashboard | `/` | 🔧 Needs rebuild |
 | Purchase Flow | `/buy` | ✅ Built |
 | The Neighborhood (Community) | `/community` | ✅ Built |
+| Support Hub | `/support` | ✅ Built |
+| FAQ | `/faq` | ✅ Built |
+| Setup Guides | `/setup` | ✅ Built |
+| Contact (Dispatch from the Workshop) | `/contact` | ✅ Built |
+| Terms of Service | `/terms` | ✅ Built |
+| Privacy Policy | `/privacy` | ✅ Built |
+| E911 Disclosure | `/e911` | ✅ Built |
+| Refund Policy | `/refunds` | ✅ Built |
 | How It Works | `/how-it-works` | ⬜ Not built (section exists on landing) |
 | The Ring Ring Shop | `/shop` | ⬜ Not built |
 | Pricing | `/pricing` | ⬜ Not built (section exists on landing) |
-| Our Analog Story | `/our-story` | ⬜ Not built |
-| FAQ | `/faq` | ⬜ Not built |
-| Setup Guides | `/setup` | ⬜ Not built |
-| Contact | `/contact` | ⬜ Not built |
-| Terms of Service | `/terms` | ⬜ Not built |
-| Privacy Policy | `/privacy` | ⬜ Not built |
-| E911 Disclosure | `/e911` | ⬜ Not built |
-| Refund Policy | `/refunds` | ⬜ Not built |
+| Our (analog) story *(About Us)* | `/our-story` | ⬜ Not built |
 | Invite a Neighbor | `/invite` | ✅ Built |
 | Admin Portal | `/admin` | ✅ Built |
 
@@ -344,3 +347,131 @@ A standalone marketing page. Same visual system as the landing page.
 | Free Stuff | Cheat Sheet / Phone Book with a child's handwriting + Post-it |
 | Paid Goods | Close-up of Calling Cards — hand-drawn design on professional cardstock |
 | Roadmap | First Call moment — handset in focus, face blurred |
+
+---
+
+## 9. Support Hub (`/support`)
+
+A three-card landing page. Entry point for all support routes.
+
+### Hero
+- Label: **Support Hub**
+- H1: Support Hub
+- Sub: "Everything you need to get the house ringing — and keep it that way."
+
+### Three Command Center Cards (full-height, equal grid)
+| # | Card | Headline | CTA |
+|---|---|---|---|
+| 1 | Setup Guides | "Start Here. Let's get the house ringing." | SEE GUIDES → `/setup` |
+| 2 | FAQ (dark — `#1a4a3a` Hunter Green) | "Got a question? We've probably answered it." | SEARCH FAQ → `/faq` |
+| 3 | Contact Us (photo placeholder) | "Need a human? We're here in Chester County to help." | GET IN TOUCH → `/contact` |
+
+- Card 1 & 3: `bg-white`, orange CTA button
+- Card 2: **dark Hunter Green (`#1a4a3a`)** background, cream CTA button — matches mockup visual
+- Each card: SVG line-art illustration or photo placeholder in top half; label, headline, body, CTA in bottom half
+- Layout: `grid-cols-1 md:grid-cols-3`
+- Bottom attribution line: CP Impact LLC, d/b/a Ring Ring Club · Berwyn, PA 19312 · support@ringringphone.com
+
+---
+
+## 10. FAQ Page (`/faq`)
+
+Accordion-style. 6 sections, 15 total Q&A cards.
+
+### Hero
+- Label: **FAQ**
+- H1: Common Questions from the Workshop
+- Sub: "Everything you need to know to get the house ringing."
+
+### Sections & Cards
+| Section | Label | Cards |
+|---|---|---|
+| 1 — The Basics | "The 'Wait, what is this?' Section" | What is Ring Ring Club? / Is this a "real" phone? / Why not a "dumb" cell phone? |
+| 2 — Culture & The Village | "Our Values" | What is the "Give Back" Program? / Are your phones new? |
+| 3 — Hardware & Tech | "The Workshop Section" | What is the Bridge? / Can I use a rotary phone? / Will physical features work? |
+| 4 — Safety & The Circle | "Peace of Mind" | Who can call my kid? / What about 911 Stickers? / Can my kid call 911? (E911 Rule, `bg-red-50` highlight) / Is my child's data safe? |
+| 5 — Parental Customization | "The Dashboard" | How do I customize the experience? (bullet sub-list: Quiet Hours, Kill Switch, Shortcuts, Invite) |
+| 6 — Pricing & Logistics | "The Nuts & Bolts" | How much does it cost? (pricing cards) / Annual discount? / Upgrading/Downgrading? / Is there a contract? / Return policy? / Where do you ship? |
+
+### Card Behavior
+- Cards are **collapsible accordions** — `+` icon rotates to `×` on open
+- Open state: `bg-stone-50/50 border-t border-stone-50` panel slides in below header
+- Section 4 "Can my kid call 911?" card uses `bg-red-50/30 border-red-50` when open
+
+### Final CTA
+- Dark Hunter Green block (`bg-[#1a4a3a]`), centered
+- H2: "Send a Digital Dispatch to the workshop floor."
+- Body: "A real human — usually one of the founders — will read it and get back to you."
+- CTA: **TALK TO THE WORKSHOP** → `/contact` (cream pill button)
+
+---
+
+## 11. Setup Guide (`/setup`)
+
+Tabbed path selector. 3 hardware paths + shared Final Step + Troubleshooting.
+
+### Hero
+- Label: **Setup Guide**
+- H1: Let's Get the House Ringing
+- Sub: "Follow the path below that matches your Ring Ring Club gear."
+
+### Path Tab Selector
+Three pill-tab buttons (icon + label):
+| Tab | Icon | Title |
+|---|---|---|
+| Path 1 | 🔌 | The Bridge + Your Own Phone |
+| Path 2 | 📦 | The Analog Bundle (Bridge + Our Vintage Phone) |
+| Path 3 | 📡 | The More Modern VoIP Phone |
+
+Active tab: `border-[#C4531A] bg-white shadow-sm`. Inactive: `border-stone-100 bg-white/50`
+
+### Each Path Card
+- `bg-white border border-stone-100 rounded-3xl` Command Center card
+- Header: label (orange small caps) + H2 + italic subtitle
+- Steps: numbered circles (`01`–`05`) + step name (bold) + detail text (HTML strings for `<strong>` LED color callouts)
+- Path 3 Step 02: "⚠️ Update Required" amber badge — WiFi setup copy pending final hardware decision
+
+### The Final Step: Activation (shared across all paths)
+- Dark Hunter Green block (`bg-[#1a4a3a]`)
+- 4 cards in a `sm:grid-cols-2` grid:
+  1. Log In (link to `/dashboard`)
+  2. Confirm 911 Address (link to `/e911`)
+  3. Build Your Circle of Trust
+  4. The Inaugural Call — italicized in amber warm tone: *"I'm calling you from the past, but the audio quality is from the future."*
+
+### Troubleshooting — Workshop Note
+- `bg-amber-50 border-2 border-amber-100 rounded-3xl`
+- Wrench emoji header
+- 3 items: No Dial Tone / Flashing Red Light / Still Stuck (links to `/faq` and `/contact`)
+
+---
+
+## 12. Contact Page — Dispatch from the Workshop (`/contact`)
+
+### Hero (2-column)
+- Left: H1 "Dispatch from the Workshop" + sub "Connecting from Berwyn, Pennsylvania." + 2 editorial paragraphs
+- Right: Workshop photo placeholder (warm-tinted, subtle film-grain overlay)
+
+### Command Center Form Card
+- `bg-white rounded-3xl shadow-md` with `z-index: 10` (floats above parchment)
+- Fields: Your Name (text) / Your Email (email) / The Situation (dropdown) / The Message (textarea)
+- Dropdown options: I need a hand with my Setup / My Bridge is acting up / I found a weird phone at a yard sale / Billing/Account Question / Just saying Hello / Something Else
+- Button: **SEND TO THE WORKSHOP** — Hunter Green (`bg-[#1a4a3a]`) pill
+- Client-side validation on submit (name required, valid email, situation selected, message required)
+- On success: swap form for "📬 Dispatch Received!" confirmation state with "Send another →" reset link
+
+### The Snail Mail Challenge 🐌
+- `bg-amber-50 border-2 border-amber-100 rounded-3xl`
+- 🐌 emoji in top-right corner (Polaroid/Post-it accent)
+- Body: snail mail invite, Wall of Fame reward, Selectric typewriter note
+- Address block: Ring Ring Club HQ · 142 Bodine Road · Berwyn, PA 19312
+
+### Are You a Neighbor?
+- `bg-white border border-stone-100 rounded-3xl`
+- Body: Main Line drop-in welcome
+- Sub-callout (stone-50 box): Note from the Parents — "ping us before you head over"
+
+### Visual Placeholders
+| Section | Photo Note |
+|---|---|
+| Hero right column | Workshop bench: tools, coiled ash cord, stack of postcards — warm-tinted, subtle film grain |
