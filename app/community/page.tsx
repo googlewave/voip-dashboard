@@ -521,13 +521,13 @@ export default function CommunityPage() {
           <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-600">
             <p>&copy; 2026 Ring Ring Club. All rights reserved.</p>
             <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <a href="#" className="hover:text-stone-400 transition">Terms of Service</a>
+              <a href="/terms" className="hover:text-stone-400 transition">Terms of Service</a>
               <span aria-hidden="true">|</span>
-              <a href="#" className="hover:text-stone-400 transition">Privacy Policy</a>
+              <a href="/privacy" className="hover:text-stone-400 transition">Privacy Policy</a>
               <span aria-hidden="true">|</span>
-              <a href="#" className="hover:text-stone-400 transition">E911 Disclosure</a>
+              <a href="/e911" className="hover:text-stone-400 transition">E911 Disclosure</a>
               <span aria-hidden="true">|</span>
-              <a href="#" className="hover:text-stone-400 transition">Refund Policy</a>
+              <a href="/refunds" className="hover:text-stone-400 transition">Refund Policy</a>
             </nav>
           </div>
         </div>
