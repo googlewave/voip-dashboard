@@ -39,15 +39,25 @@ export async function POST(req: NextRequest) {
       .eq('id', user.id);
   }
 
+  const body = await req.json().catch(() => ({}));
+  const selectedPlan = body?.plan === 'annual' ? 'annual' : 'monthly';
+  const selectedPriceId = selectedPlan === 'annual'
+    ? process.env.STRIPE_PAID_PLAN_ANNUAL_PRICE_ID
+    : process.env.STRIPE_PAID_PLAN_MONTHLY_PRICE_ID || process.env.STRIPE_PRICE_ID;
+
+  if (!selectedPriceId) {
+    return NextResponse.json({ error: 'Missing Stripe price configuration' }, { status: 500 });
+  }
+
   const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_APP_URL!.replace(/\/$/, '');
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
-    success_url: `${origin}/?upgraded=true`,
-    cancel_url: `${origin}/`,
-    metadata: { userId: user.id },
+    line_items: [{ price: selectedPriceId, quantity: 1 }],
+    success_url: `${origin}/dashboard`,
+    cancel_url: `${origin}/dashboard`,
+    metadata: { userId: user.id, plan: selectedPlan, source: 'dashboard-add-line' },
   });
 
   return NextResponse.json({ url: session.url });

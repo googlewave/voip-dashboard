@@ -687,10 +687,14 @@ function DashboardInner() {
     }
   };
 
-  const startAdditionalCheckout = async () => {
+  const startAdditionalCheckout = async (plan: 'monthly' | 'annual') => {
     setCheckingOut(true);
     try {
-      const res = await fetch('/api/billing/create-checkout', { method: 'POST' });
+      const res = await fetch('/api/billing/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
       const data = await res.json();
       if (data.url) window.location.href = data.url;
     } finally {
@@ -1113,7 +1117,7 @@ function DashboardInner() {
                     ))}
                   </ul>
                   <button
-                    onClick={startAdditionalCheckout}
+                    onClick={() => startAdditionalCheckout('monthly')}
                     disabled={checkingOut}
                     className="w-full px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
                   >
@@ -1136,7 +1140,7 @@ function DashboardInner() {
                     ))}
                   </ul>
                   <button
-                    onClick={startAdditionalCheckout}
+                    onClick={() => startAdditionalCheckout('annual')}
                     disabled={checkingOut}
                     className="w-full px-6 py-3 bg-stone-800 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50"
                   >
