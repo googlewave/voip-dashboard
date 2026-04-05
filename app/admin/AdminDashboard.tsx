@@ -7,6 +7,7 @@ import TrustedContactsManager from '@/components/TrustedContactsManager';
 import { ADAPTER_OPTIONS, getAdapterLabel, getDefaultAdapterType, getProvisioningQueryType, normalizeAdapterType } from '@/lib/voip/adapters';
 import type { SupportedAdapterType } from '@/lib/voip/adapters';
 import { formatPhoneDisplay, formatPhoneInput, getPhoneInputHint, isPhoneInputValid } from '@/lib/phone';
+import { ANNUAL_PLAN_PRICE, MONTHLY_PLAN_PRICE } from '@/lib/pricing';
 
 type User = {
   id: string;
@@ -754,7 +755,7 @@ export default function AdminDashboard({
                   >
                     <option value="free">Free</option>
                     <option value="monthly">Monthly ($8.95)</option>
-                    <option value="annual">Annual ($85.80)</option>
+                    <option value="annual">Annual ($96.66)</option>
                   </select>
                   <button
                     onClick={addUser}
@@ -1161,7 +1162,7 @@ export default function AdminDashboard({
                   >
                     <option value="free">Free (F&F)</option>
                     <option value="monthly">Monthly ($8.95)</option>
-                    <option value="annual">Annual ($85.80)</option>
+                    <option value="annual">Annual ($96.66)</option>
                   </select>
                 </div>
                 <div>
@@ -1420,7 +1421,7 @@ export default function AdminDashboard({
           const stripePaid = users.filter(u => (u.plan === 'monthly' || u.plan === 'annual') && u.stripeSubscriptionId);
           const ffPaid = users.filter(u => (u.plan === 'monthly' || u.plan === 'annual') && !u.stripeSubscriptionId);
           const freeUsers = users.filter(u => u.plan === 'free');
-          const mrr = stripePaid.reduce((sum, u) => sum + (u.plan === 'monthly' ? 8.95 : 85.80 / 12), 0);
+          const mrr = stripePaid.reduce((sum, u) => sum + (u.plan === 'monthly' ? MONTHLY_PLAN_PRICE : ANNUAL_PLAN_PRICE / 12), 0);
 
           return (
             <div className="space-y-6">

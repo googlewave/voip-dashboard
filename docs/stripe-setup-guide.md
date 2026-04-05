@@ -34,12 +34,12 @@
      - **Currency:** USD
      - **Billing period:** `Recurring` → `Monthly`
      - **Nickname:** `Monthly`
-   - **Price 2 — Annual (20% off):**
+    - **Price 2 — Annual (10% off):**
      - Click **Add another price**
-     - **Amount:** `85.80` USD (8.95 × 12 × 0.8 = 85.80)
+       - **Amount:** `96.66` USD (8.95 × 12 × 0.9 = 96.66)
      - **Currency:** USD
      - **Billing period:** `Recurring` → `Yearly` (every 12 months)
-     - **Nickname:** `Annual (20% off)`
+       - **Nickname:** `Annual (10% off)`
 
 4. Click **Save product**
 

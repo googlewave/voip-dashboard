@@ -7,6 +7,7 @@ import type { User } from '@supabase/supabase-js';
 import FriendsTab from './FriendsTab';
 import TrustedContactsManager from '@/components/TrustedContactsManager';
 import { formatPhoneDisplay } from '@/lib/phone';
+import { ANNUAL_MONTHLY_EQUIVALENT, ANNUAL_PLAN_PRICE, MONTHLY_PLAN_PRICE, getPlanPriceLabel } from '@/lib/pricing';
 import { getAdapterLabel, getProvisioningQueryType } from '@/lib/voip/adapters';
 
 interface Contact {
@@ -1122,12 +1123,12 @@ function DashboardInner() {
 
                 {/* Annual */}
                 <div className="rounded-2xl border-2 border-[#C4531A] p-6 flex flex-col relative">
-                  <div className="absolute -top-3 left-6 bg-[#C4531A] text-white text-xs font-black px-3 py-1 rounded-full">SAVE 20%</div>
+                  <div className="absolute -top-3 left-6 bg-[#C4531A] text-white text-xs font-black px-3 py-1 rounded-full">SAVE 10%</div>
                   <div className="text-sm font-bold text-[#C4531A] uppercase tracking-wide mb-1">Annual</div>
-                  <div className="text-4xl font-black text-stone-900 mb-1">$85.80<span className="text-lg font-bold text-stone-400">/yr</span></div>
-                  <p className="text-sm text-stone-500 mb-6">That&apos;s $7.15/month — two months free vs monthly.</p>
+                  <div className="text-4xl font-black text-stone-900 mb-1">$96.66<span className="text-lg font-bold text-stone-400">/yr</span></div>
+                  <p className="text-sm text-stone-500 mb-6">That&apos;s $${ANNUAL_MONTHLY_EQUIVALENT.toFixed(2)}/month — save ~$11/year vs monthly.</p>
                   <ul className="space-y-2 text-sm text-stone-600 mb-6 flex-1">
-                    {['Everything in Monthly', 'Two months free', 'Priority support'].map(f => (
+                    {['Everything in Monthly', 'Save ~$11/year', 'Priority support'].map(f => (
                       <li key={f} className="flex items-center gap-2">
                         <span className="w-4 h-4 rounded-full bg-[#C4531A]/10 text-[#C4531A] flex items-center justify-center text-xs">✓</span>
                         {f}
@@ -1433,7 +1434,7 @@ function DashboardInner() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-black text-stone-900">{profile?.plan === 'annual' ? '$85.80/year' : '$8.95/month'}</span>
+                            <span className="font-black text-stone-900">{profile?.plan === 'annual' ? getPlanPriceLabel('annual') : getPlanPriceLabel('monthly')}</span>
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
                           </div>
                           {profile?.twilio_number && (

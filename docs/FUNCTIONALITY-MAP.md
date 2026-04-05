@@ -417,7 +417,7 @@ At call time, the SIP username is dialed directly (SIP-to-SIP, free).
 ### Buy Flow (`/buy`)
 4-step wizard:
 1. **Hardware** — Ring Ring Bridge ($39) or Starter Kit ($69)
-2. **Plan** — Free, Monthly ($8.95), Annual ($85.80)
+2. **Plan** — Free, Monthly ($8.95), Annual ($96.66)
 3. **Delivery** — Local pickup (Philadelphia) or shipping
 4. **Checkout** — Email, password, name, area code (paid), shipping address (if shipping), E911 address (if paid)
    → `POST /api/buy/checkout`
@@ -472,9 +472,9 @@ At call time, the SIP username is dialed directly (SIP-to-SIP, free).
 |------|-------|------------|-------------|-------------|-----------|------|
 | **Starter (Free)** | $0 | ✗ Ring Ring only | ✗ | ✓ | ✗ | ✗ |
 | **Monthly** | $8.95/mo | ✓ Unlimited US | ✓ | ✓ | ✓ | ✓ |
-| **Annual** | $85.80/yr (~$7.16/mo) | ✓ Unlimited US | ✓ | ✓ | ✓ | ✓ |
+| **Annual** | $96.66/yr (~$8.06/mo) | ✓ Unlimited US | ✓ | ✓ | ✓ | ✓ |
 
-Annual saves ~20% ($21/year).
+Annual saves ~10% (~$11/year).
 
 ---
 

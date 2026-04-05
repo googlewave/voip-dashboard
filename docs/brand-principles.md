@@ -121,7 +121,7 @@ We enjoy figuring this out and building it with our community. We take safety an
 |---|---|---|
 | Starter (Free) | $0/month | Ring Ring → Ring Ring calls only |
 | Make It Ring Ring | $8.95/month | Unlimited US inbound/outbound calls |
-| Annual (Make It Ring Ring) | ~$7.16/month (20% off) | Same as above, billed annually |
+| Annual (Make It Ring Ring) | ~$8.06/month (10% off) | Same as above, billed annually |
 
 No hidden fees. No walled gardens. No upcharges.
 

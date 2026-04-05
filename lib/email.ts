@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { getPlanPriceLabel } from '@/lib/pricing';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -18,7 +19,7 @@ export async function sendWelcomeEmail({ to, name, plan, phoneNumber }: WelcomeE
     return;
   }
   
-  const planPrice = plan === 'annual' ? '$85.80/year' : '$8.95/month';
+  const planPrice = getPlanPriceLabel(plan);
   
   try {
     await resend.emails.send({

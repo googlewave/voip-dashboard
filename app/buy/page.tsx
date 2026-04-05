@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatAreaCodeInput, getAreaCodeHint, isAreaCodeValid, normalizeAreaCode } from '@/lib/phone';
+import { ANNUAL_MONTHLY_EQUIVALENT, ANNUAL_PLAN_PRICE, MONTHLY_PLAN_PRICE } from '@/lib/pricing';
 
 type HardwareOption = 'adapter' | 'kit' | null;
 type PlanOption = 'free' | 'monthly' | 'annual' | null;
@@ -130,7 +131,7 @@ export default function BuyPage() {
   };
 
   const hardwarePrice = hardware === 'adapter' ? 39 : hardware === 'kit' ? 69 : 0;
-  const planPrice = plan === 'monthly' ? 8.95 : plan === 'annual' ? 85.80 : 0;
+  const planPrice = plan === 'monthly' ? MONTHLY_PLAN_PRICE : plan === 'annual' ? ANNUAL_PLAN_PRICE : 0;
 
   // Coupon discount applies only to subscription portion (not hardware)
   const couponDiscount = couponApplied && plan !== 'free'
@@ -250,16 +251,16 @@ export default function BuyPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <div className="font-black text-stone-900">Make It Ring Ring (Annual)</div>
-                    <div className="text-xs text-[#C4531A] font-bold">Save 20%</div>
+                    <div className="text-xs text-[#C4531A] font-bold">Save 10%</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-black text-stone-900">$85.80<span className="text-sm text-stone-400">/yr</span></div>
-                    <div className="text-xs text-stone-400">~$7.16/mo</div>
+                    <div className="text-2xl font-black text-stone-900">$96.66<span className="text-sm text-stone-400">/yr</span></div>
+                    <div className="text-xs text-stone-400">~$${ANNUAL_MONTHLY_EQUIVALENT.toFixed(2)}/mo</div>
                   </div>
                 </div>
                 <div className="text-sm text-stone-500 space-y-1">
                   <div>✓ Everything in Monthly</div>
-                  <div>✓ Save $21/year</div>
+                  <div>✓ Save ~$11/year</div>
                 </div>
               </button>
             </div>
@@ -514,7 +515,7 @@ export default function BuyPage() {
                   {plan !== 'free' && (
                     <div className="flex justify-between">
                       <span className="text-stone-600">
-                        {plan === 'monthly' ? 'Monthly Plan' : 'Annual Plan (20% off)'}
+                        {plan === 'monthly' ? 'Monthly Plan' : 'Annual Plan (10% off)'}
                       </span>
                       <span className="font-bold text-stone-900">${planPrice.toFixed(2)}</span>
                     </div>
