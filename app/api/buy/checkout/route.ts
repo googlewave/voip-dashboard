@@ -4,6 +4,7 @@ import { sendOrderConfirmationEmail } from '@/lib/email';
 import { prisma } from '@/lib/prisma';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { normalizeAreaCode } from '@/lib/phone';
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +28,11 @@ export async function POST(req: NextRequest) {
       e911Address,
       couponCode,
     } = await req.json();
+    const normalizedAreaCode = plan !== 'free' ? normalizeAreaCode(areaCode) : null;
+
+    if (plan !== 'free' && !normalizedAreaCode) {
+      return NextResponse.json({ error: 'A valid 3-digit area code is required' }, { status: 400 });
+    }
 
     // 1. Create Supabase user account
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -49,7 +55,7 @@ export async function POST(req: NextRequest) {
         id: userId,
         email: email,
         plan: 'free', // Will be updated by webhook after payment
-        area_code: areaCode || null,
+        area_code: normalizedAreaCode,
       });
 
     if (dbError) {
@@ -121,7 +127,7 @@ export async function POST(req: NextRequest) {
         plan,
         delivery,
         name,
-        areaCode: areaCode || '',
+        areaCode: normalizedAreaCode || '',
         shippingAddress: shippingAddress ? JSON.stringify(shippingAddress) : '',
         e911Address: e911Address ? JSON.stringify(e911Address) : '',
         couponCode: couponCode || '',

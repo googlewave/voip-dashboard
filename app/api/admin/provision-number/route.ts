@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import twilio from 'twilio';
 import { prisma } from '@/lib/prisma';
 import { sendPhoneProvisionedEmail } from '@/lib/email';
+import { normalizeAreaCode } from '@/lib/phone';
 
 const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID!,
@@ -11,24 +12,23 @@ const twilioClient = twilio(
 export async function POST(req: NextRequest) {
   try {
     const { userId, areaCode, e911 } = await req.json();
+    const normalizedAreaCode = normalizeAreaCode(areaCode);
 
-    if (!userId || !areaCode) {
+    if (!userId || !normalizedAreaCode) {
       return NextResponse.json(
-        { error: 'userId and areaCode are required' },
+        { error: 'userId and a valid 3-digit area code are required' },
         { status: 400 }
       );
     }
 
-    const cleanAreaCode = areaCode.toString().trim();
-
     // 1. Search for available number
     const available = await twilioClient
       .availablePhoneNumbers('US')
-      .local.list({ areaCode: cleanAreaCode, limit: 1 });
+      .local.list({ areaCode: Number(normalizedAreaCode), limit: 1 });
 
     if (available.length === 0) {
       return NextResponse.json(
-        { error: `No available numbers for area code ${cleanAreaCode}` },
+        { error: `No available numbers for area code ${normalizedAreaCode}` },
         { status: 404 }
       );
     }

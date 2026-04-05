@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatAreaCodeInput, getAreaCodeHint, isAreaCodeValid, normalizeAreaCode } from '@/lib/phone';
 
 type HardwareOption = 'adapter' | 'kit' | null;
 type PlanOption = 'free' | 'monthly' | 'annual' | null;
@@ -87,7 +88,7 @@ export default function BuyPage() {
     if (step === 3) return delivery !== null;
     if (step === 4) {
       if (!email || !name) return false;
-      if (plan !== 'free' && !areaCode) return false;
+      if (plan !== 'free' && !isAreaCodeValid(areaCode)) return false;
       if (delivery === 'shipping' && (!shippingAddress.line1 || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zip)) return false;
       if (plan !== 'free' && !useShippingForE911 && (!e911Address.line1 || !e911Address.city || !e911Address.state || !e911Address.zip)) return false;
       return true;
@@ -98,6 +99,7 @@ export default function BuyPage() {
   const handleCheckout = async () => {
     setLoading(true);
     try {
+      const normalizedAreaCode = plan !== 'free' ? normalizeAreaCode(areaCode) : null;
       const res = await fetch('/api/buy/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,7 +110,7 @@ export default function BuyPage() {
           email,
           password,
           name,
-          areaCode: plan !== 'free' ? areaCode : null,
+          areaCode: normalizedAreaCode,
           shippingAddress: delivery === 'shipping' ? shippingAddress : null,
           e911Address: plan !== 'free' ? (useShippingForE911 ? shippingAddress : e911Address) : null,
           couponCode: couponApplied ? couponApplied.code : null,
@@ -332,14 +334,16 @@ export default function BuyPage() {
                 <div>
                   <label className="block text-sm font-bold text-stone-900 mb-2">Preferred Area Code</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]{3}"
                     maxLength={3}
                     value={areaCode}
-                    onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-stone-200 focus:border-[#C4531A] outline-none"
-                    placeholder="e.g., 302, 215, 610"
+                    onChange={(e) => setAreaCode(formatAreaCodeInput(e.target.value))}
+                    className={`w-full px-4 py-3 rounded-xl border-2 outline-none ${!areaCode || isAreaCodeValid(areaCode) ? 'border-stone-200 focus:border-[#C4531A]' : 'border-red-300 focus:border-red-400'}`}
+                    placeholder="302"
                   />
-                  <p className="text-xs text-stone-500 mt-1">We'll provision a phone number in this area code for your Ring Ring service.</p>
+                  <p className={`text-xs mt-1 ${!areaCode || isAreaCodeValid(areaCode) ? 'text-stone-500' : 'text-red-600'}`}>{getAreaCodeHint(areaCode)}</p>
                 </div>
               )}
 

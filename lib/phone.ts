@@ -67,3 +67,31 @@ export function getPhoneInputHint(raw: string | null | undefined, emptyHint: str
 
   return 'Enter a full phone number like +1 610 854 9109 or 6108549109.';
 }
+
+export function formatAreaCodeInput(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return raw.replace(/\D/g, '').slice(0, 3);
+}
+
+export function normalizeAreaCode(raw: string | null | undefined): string | null {
+  const digits = formatAreaCodeInput(raw);
+  return digits.length === 3 ? digits : null;
+}
+
+export function isAreaCodeValid(raw: string | null | undefined) {
+  if (!raw?.trim()) return false;
+  return normalizeAreaCode(raw) !== null;
+}
+
+export function getAreaCodeHint(raw: string | null | undefined) {
+  const digits = formatAreaCodeInput(raw);
+  if (!digits) {
+    return 'Enter 3 digits, for example 302, 215, or 610.';
+  }
+
+  if (digits.length < 3) {
+    return 'Area codes are 3 digits.';
+  }
+
+  return `We will try to provision a number in the ${digits} area code.`;
+}
