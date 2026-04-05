@@ -495,9 +495,9 @@ export default function LandingPage() {
             <div>
               <div className="text-white font-bold mb-4">Support</div>
               <nav aria-label="Support" className="space-y-2">
-                <a href="#" className="block hover:text-white transition">FAQs</a>
-                <a href="#" className="block hover:text-white transition">Setup Guides</a>
-                <a href="#" className="block hover:text-white transition">Contact Us</a>
+                <a href="/faq" className="block hover:text-white transition">FAQs</a>
+                <a href="/setup" className="block hover:text-white transition">Setup Guides</a>
+                <a href="/contact" className="block hover:text-white transition">Contact Us</a>
               </nav>
             </div>
 
@@ -514,7 +514,7 @@ export default function LandingPage() {
 
           {/* Bottom strip */}
           <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-600">
-            <p>© 2026 Ring Ring. All rights reserved.</p>
+            <p>© 2026 Ring Ring Club (CP Impact LLC). All rights reserved.</p>
             <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <a href="/terms" className="hover:text-stone-400 transition">Terms of Service</a>
               <span aria-hidden="true">|</span>

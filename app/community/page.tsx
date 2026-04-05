@@ -23,8 +23,11 @@ export default function CommunityPage() {
             Ring Ring Club
           </button>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-500">
-            <button onClick={() => router.push('/landing')} className="hover:text-stone-800 transition">Home</button>
-            <button className="text-stone-900 font-bold border-b-2 border-[#C4531A] pb-0.5">The Neighborhood</button>
+            <a href="/landing" className="hover:text-stone-800 transition">Home</a>
+            <a href="/landing#story" className="hover:text-stone-800 transition">Our (analog) story</a>
+            <a href="/landing#how" className="hover:text-stone-800 transition">How It Works</a>
+            <a href="/landing#shop" className="hover:text-stone-800 transition">The Ring Ring Shop</a>
+            <a href="/landing#pricing" className="hover:text-stone-800 transition">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/login')} className="text-stone-500 hover:text-stone-800 font-medium text-sm transition">Sign In</button>
@@ -504,9 +507,9 @@ export default function CommunityPage() {
             <div>
               <div className="text-white font-bold mb-4">Support</div>
               <nav aria-label="Support" className="space-y-2">
-                <a href="#" className="block hover:text-white transition">FAQs</a>
-                <a href="#" className="block hover:text-white transition">Setup Guides</a>
-                <a href="#" className="block hover:text-white transition">Contact Us</a>
+                <a href="/faq" className="block hover:text-white transition">FAQs</a>
+                <a href="/setup" className="block hover:text-white transition">Setup Guides</a>
+                <a href="/contact" className="block hover:text-white transition">Contact Us</a>
               </nav>
             </div>
             <div>
