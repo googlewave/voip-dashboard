@@ -46,7 +46,71 @@ type Contact = {
   sip_username?: string | null;
 };
 
+type DeviceDiagnostic = {
+  id: string;
+  name: string;
+  userId: string;
+  phoneNumber: string | null;
+  adapterType: string | null;
+  macAddress: string | null;
+  adapterIp: string | null;
+  sipReady: boolean;
+  online: boolean;
+  health: 'healthy' | 'warning' | 'error' | 'pending';
+  provisioningStatus: string;
+  lastProvisionedAt: string | null;
+  configVersion: string | null;
+  lastSeenIp: string | null;
+  latestLog: {
+    timestamp: string;
+    status: string;
+    ipAddress: string | null;
+    userAgent: string | null;
+    errorMessage: string | null;
+  } | null;
+  recentLogs: Array<{
+    timestamp: string;
+    status: string;
+    ipAddress: string | null;
+    errorMessage: string | null;
+  }>;
+  registration: {
+    registeredAt: string | null;
+    expiresAt: string | null;
+    ipAddress: string | null;
+    status: string;
+    active: boolean;
+  };
+};
+
+type DeviceDiagnosticsResponse = {
+  generatedAt: string;
+  summary: {
+    totalDevices: number;
+    healthy: number;
+    warning: number;
+    error: number;
+    pending: number;
+    online: number;
+    sipReady: number;
+    recentFailures: number;
+  };
+  devices: DeviceDiagnostic[];
+};
+
 type Tab = 'users' | 'billing' | 'coupons' | 'system';
+
+function formatTimestamp(value: string | null) {
+  if (!value) return 'Never';
+  return new Date(value).toLocaleString();
+}
+
+function healthBadgeClass(health: DeviceDiagnostic['health']) {
+  if (health === 'healthy') return 'bg-emerald-100 text-emerald-800';
+  if (health === 'warning') return 'bg-amber-100 text-amber-800';
+  if (health === 'error') return 'bg-red-100 text-red-800';
+  return 'bg-stone-100 text-stone-700';
+}
 
 export default function AdminDashboard({
   initialUsers,
@@ -99,6 +163,8 @@ export default function AdminDashboard({
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
   const [webhookFixResult, setWebhookFixResult] = useState<string | null>(null);
   const [deviceLineFixResult, setDeviceLineFixResult] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DeviceDiagnosticsResponse | null>(null);
+  const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null);
 
   // Coupons
   type CouponRow = {
@@ -392,6 +458,23 @@ export default function AdminDashboard({
     }
     setLoading((prev) => ({ ...prev, fix_device_lines: false }));
     setTimeout(() => setDeviceLineFixResult(null), 8000);
+  };
+
+  const loadDiagnostics = async () => {
+    setLoading((prev) => ({ ...prev, diagnostics: true }));
+    setDiagnosticsError(null);
+    try {
+      const res = await fetch('/api/admin/device-diagnostics', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) {
+        setDiagnosticsError(data.error || 'Failed to load diagnostics');
+      } else {
+        setDiagnostics(data);
+      }
+    } catch (err: unknown) {
+      setDiagnosticsError(err instanceof Error ? err.message : 'Failed to load diagnostics');
+    }
+    setLoading((prev) => ({ ...prev, diagnostics: false }));
   };
 
   // Device Management
@@ -1567,6 +1650,111 @@ export default function AdminDashboard({
                 </div>
               </div>
 
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 border-2 border-stone-100">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-stone-900">🩺 Provisioning Diagnostics</h3>
+                  <p className="text-sm text-stone-500 mt-1">
+                    Shows the latest provisioning health, recent fetch failures, and registration signal per device.
+                  </p>
+                </div>
+                <button
+                  onClick={loadDiagnostics}
+                  disabled={loading.diagnostics}
+                  className="px-5 py-3 bg-stone-900 text-white font-bold rounded-xl hover:bg-stone-700 transition disabled:opacity-50"
+                >
+                  {loading.diagnostics ? 'Refreshing…' : diagnostics ? 'Refresh Diagnostics' : 'Load Diagnostics'}
+                </button>
+              </div>
+
+              {diagnosticsError && (
+                <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  {diagnosticsError}
+                </p>
+              )}
+
+              {diagnostics && (
+                <div className="mt-6 space-y-6">
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+                    {[
+                      { label: 'Healthy', value: diagnostics.summary.healthy, tone: 'text-emerald-700' },
+                      { label: 'Warning', value: diagnostics.summary.warning, tone: 'text-amber-700' },
+                      { label: 'Error', value: diagnostics.summary.error, tone: 'text-red-700' },
+                      { label: 'Pending', value: diagnostics.summary.pending, tone: 'text-stone-700' },
+                      { label: 'Online', value: diagnostics.summary.online, tone: 'text-blue-700' },
+                      { label: 'Recent Failures', value: diagnostics.summary.recentFailures, tone: 'text-red-700' },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                        <p className="text-xs font-black uppercase tracking-[0.2em] text-stone-400">{item.label}</p>
+                        <p className={`mt-2 text-2xl font-black ${item.tone}`}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="text-xs text-stone-400">Generated {formatTimestamp(diagnostics.generatedAt)}</p>
+
+                  <div className="overflow-x-auto rounded-2xl border border-stone-200">
+                    <table className="min-w-full divide-y divide-stone-200 text-sm">
+                      <thead className="bg-stone-50 text-left text-xs font-black uppercase tracking-[0.18em] text-stone-500">
+                        <tr>
+                          <th className="px-4 py-3">Device</th>
+                          <th className="px-4 py-3">Provisioning</th>
+                          <th className="px-4 py-3">Registration</th>
+                          <th className="px-4 py-3">Network</th>
+                          <th className="px-4 py-3">Latest Error</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-stone-100 bg-white">
+                        {diagnostics.devices.map((device) => (
+                          <tr key={device.id}>
+                            <td className="px-4 py-4 align-top">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black ${healthBadgeClass(device.health)}`}>
+                                    {device.health}
+                                  </span>
+                                  <span className="font-bold text-stone-900">{device.name}</span>
+                                </div>
+                                <span className="font-mono text-xs text-stone-500">{device.phoneNumber || 'No line'} · {device.adapterType || 'unknown'}</span>
+                                <span className="font-mono text-xs text-stone-400">{device.id}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 align-top text-stone-700">
+                              <p><strong>Status:</strong> {device.provisioningStatus}</p>
+                              <p><strong>Last fetch:</strong> {formatTimestamp(device.lastProvisionedAt)}</p>
+                              <p><strong>Config:</strong> {device.configVersion || '—'}</p>
+                              <p><strong>SIP ready:</strong> {device.sipReady ? 'Yes' : 'No'}</p>
+                            </td>
+                            <td className="px-4 py-4 align-top text-stone-700">
+                              <p><strong>Signal:</strong> {device.registration.status}</p>
+                              <p><strong>Active:</strong> {device.registration.active ? 'Yes' : 'No'}</p>
+                              <p><strong>Seen:</strong> {formatTimestamp(device.registration.registeredAt)}</p>
+                            </td>
+                            <td className="px-4 py-4 align-top text-stone-700">
+                              <p><strong>Last IP:</strong> {device.lastSeenIp || device.registration.ipAddress || '—'}</p>
+                              <p><strong>Adapter IP:</strong> {device.adapterIp || '—'}</p>
+                              <p><strong>MAC:</strong> {device.macAddress || '—'}</p>
+                              <p><strong>Online:</strong> {device.online ? 'Yes' : 'No'}</p>
+                            </td>
+                            <td className="px-4 py-4 align-top text-stone-700">
+                              {device.latestLog?.errorMessage ? (
+                                <>
+                                  <p className="font-semibold text-red-700">{device.latestLog.errorMessage}</p>
+                                  <p className="mt-1 text-xs text-stone-500">{formatTimestamp(device.latestLog.timestamp)}</p>
+                                </>
+                              ) : (
+                                <p className="text-stone-400">No recent provisioning error</p>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-amber-50 rounded-3xl p-6 border-2 border-amber-200">

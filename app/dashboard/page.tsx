@@ -95,6 +95,9 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
   const url = typeof window !== 'undefined'
     ? `${window.location.origin}/api/provision/auto/${deviceId}${typeParam}`
     : `/api/provision/auto/${deviceId}${typeParam}`;
+  const networkTestUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/network-test?url=${encodeURIComponent(url)}`
+    : `/network-test?url=${encodeURIComponent(url)}`;
 
   const copy = () => {
     navigator.clipboard.writeText(url);
@@ -114,6 +117,17 @@ function SetupGuidePanel({ deviceId, adapterType }: { deviceId: string; adapterT
           >
             {copied ? '✓ Copied' : 'Copy'}
           </button>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <a
+            href={networkTestUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-200 transition"
+          >
+            Run Network Test On This Router
+          </a>
+          <span className="text-xs text-stone-500">Open this from the same Wi-Fi or LAN as the adapter.</span>
         </div>
       </div>
       <ol className="space-y-3">
