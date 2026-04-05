@@ -384,15 +384,15 @@ function DashboardInner() {
       .select('*')
       .eq('user_id', userId);
 
-    const devicesWithContacts = devicesData.map((device) => ({
+    const devicesWithContacts: Device[] = devicesData.map((device: Device) => ({
       ...device,
-      contacts: (contactsData || []).filter((c) => c.device_id === device.id),
+      contacts: (contactsData || []).filter((c: Contact) => c.device_id === device.id),
     }));
 
     setDevices(devicesWithContacts);
 
     if (selectedDevice) {
-      const updated = devicesWithContacts.find((d) => d.id === selectedDevice.id);
+      const updated = devicesWithContacts.find((d: Device) => d.id === selectedDevice.id);
       if (updated) applySelectedDevice(updated);
     }
   }

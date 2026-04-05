@@ -3,10 +3,9 @@ import Stripe from 'stripe';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { getStripe } from '@/lib/stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-02-25.clover',
-});
+export const dynamic = 'force-dynamic';
 
 async function getAdminUser() {
   const cookieStore = await cookies();
@@ -39,6 +38,8 @@ export async function GET() {
 
 // POST /api/admin/coupons — create a new coupon
 export async function POST(req: NextRequest) {
+  const stripe = getStripe();
+
   const user = await getAdminUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

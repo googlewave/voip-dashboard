@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type BrowserTestResult = {
@@ -64,7 +64,7 @@ function analysisTone(severity: Analysis['severity']) {
   return 'border-red-200 bg-red-50 text-red-900';
 }
 
-export default function NetworkTestPage() {
+function NetworkTestPageContent() {
   const searchParams = useSearchParams();
   const [url, setUrl] = useState('');
   const [deviceId, setDeviceId] = useState('');
@@ -309,5 +309,21 @@ export default function NetworkTestPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function NetworkTestPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[linear-gradient(180deg,#f7f4ec_0%,#f1ede3_100%)] px-6 py-10">
+          <div className="mx-auto max-w-5xl rounded-[2rem] border-2 border-stone-200 bg-white/90 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
+            <p className="text-sm text-stone-600">Loading network test…</p>
+          </div>
+        </main>
+      }
+    >
+      <NetworkTestPageContent />
+    </Suspense>
   );
 }

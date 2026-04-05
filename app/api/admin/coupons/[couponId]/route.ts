@@ -3,10 +3,7 @@ import Stripe from 'stripe';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-02-25.clover',
-});
+import { getStripe } from '@/lib/stripe';
 
 async function getAdminUser() {
   const cookieStore = await cookies();
@@ -30,6 +27,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ couponId: string }> }
 ) {
+  const stripe = getStripe();
+
   const user = await getAdminUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
