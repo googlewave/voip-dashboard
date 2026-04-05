@@ -159,6 +159,12 @@ function validationBadgeClass(verdict: ProvisionValidationResult['verdict']) {
   return 'bg-red-100 text-red-800';
 }
 
+function adminTabClass(active: boolean) {
+  return active
+    ? 'rounded-full border border-stone-200 bg-white px-4 py-2 text-stone-900 shadow-sm'
+    : 'rounded-full px-4 py-2 text-stone-500 hover:bg-white/70 hover:text-stone-800 transition';
+}
+
 export default function AdminDashboard({
   initialUsers,
   initialDevices,
@@ -656,18 +662,23 @@ export default function AdminDashboard({
     <div className="min-h-screen bg-[#FAF7F2]">
       
       {/* Header */}
-      <header className="bg-gradient-to-r from-[#C4531A] to-[#a84313] border-b border-[#a84313]">
+      <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-[#FAF7F2]/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <button onClick={() => router.push('/portal-select')} className="text-xl font-black text-white">
-              ⚡ Admin Portal
-            </button>
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-orange-100">
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.push('/portal-select')} className="text-xl font-black tracking-tight text-stone-900">
+                Ring Ring Club
+              </button>
+              <span className="inline-flex items-center rounded-full bg-[#C4531A] px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-white">
+                Admin Portal
+              </span>
+            </div>
+            <nav className="hidden md:flex items-center gap-2 text-sm font-medium">
               {(['users', 'billing', 'coupons', 'system'] as Tab[]).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => { setActiveTab(tab); if (tab === 'coupons' && !couponsLoaded) void loadCoupons(); }}
-                  className={`capitalize transition ${activeTab === tab ? 'text-white font-bold' : 'hover:text-white'}`}
+                  className={`${adminTabClass(activeTab === tab)} capitalize`}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -675,10 +686,10 @@ export default function AdminDashboard({
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs bg-white/20 text-white font-bold px-3 py-1.5 rounded-full">
+            <span className="text-xs bg-white text-[#C4531A] border border-[#C4531A]/20 font-bold px-3 py-1.5 rounded-full">
               Admin
             </span>
-            <button onClick={signOut} className="text-sm text-orange-100 hover:text-white transition">
+            <button onClick={signOut} className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition">
               Sign Out
             </button>
           </div>
@@ -841,7 +852,7 @@ export default function AdminDashboard({
                                   setProvisioningUser(user.id);
                                   setE911Data({ ...e911Data, areaCode: user.areaCode || '' });
                                 }}
-                                className="px-3 py-2 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 transition text-sm"
+                                className="px-3 py-2 bg-[#C4531A]/10 text-[#C4531A] font-bold rounded-lg hover:bg-[#C4531A]/15 transition text-sm"
                               >
                                 + Phone #
                               </button>
@@ -922,7 +933,7 @@ export default function AdminDashboard({
                                         </div>
                                         <p className="text-xs text-stone-400 mt-0.5 truncate">
                                           {device.phoneNumber
-                                            ? <span className="font-mono text-blue-600 font-semibold">{formatPhoneDisplay(device.phoneNumber)}</span>
+                                            ? <span className="font-mono text-[#C4531A] font-semibold">{formatPhoneDisplay(device.phoneNumber)}</span>
                                             : <span className="text-amber-500">No line</span>
                                           }
                                           {' · '}{device.sipUsername || 'No SIP creds'}
@@ -937,7 +948,7 @@ export default function AdminDashboard({
                                           <>
                                             <button
                                               onClick={() => copyProvisionUrl(device.id, device.adapterType || getDefaultAdapterType())}
-                                              className="px-2.5 py-1.5 bg-blue-100 text-blue-800 font-bold rounded-lg hover:bg-blue-200 transition text-xs"
+                                              className="px-2.5 py-1.5 bg-[#C4531A]/10 text-[#C4531A] font-bold rounded-lg hover:bg-[#C4531A]/15 transition text-xs"
                                             >
                                               {copiedId === device.id ? '✓ Copied' : 'Copy URL'}
                                             </button>
@@ -960,7 +971,7 @@ export default function AdminDashboard({
                                         )}
                                         <button
                                           onClick={() => openEditDevice(device)}
-                                          className="px-2.5 py-1.5 bg-purple-100 text-purple-800 font-bold rounded-lg hover:bg-purple-200 transition text-xs"
+                                          className="px-2.5 py-1.5 bg-stone-100 text-stone-800 font-bold rounded-lg hover:bg-stone-200 transition text-xs"
                                         >
                                           Edit
                                         </button>
@@ -1284,7 +1295,7 @@ export default function AdminDashboard({
                   <button
                     onClick={provisionNumber}
                     disabled={loading.provision_number || !e911Data.areaCode || !e911Data.customerName || !e911Data.street || !e911Data.city || !e911Data.region || !e911Data.postalCode}
-                    className="flex-1 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+                    className="flex-1 px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
                   >
                     {loading.provision_number ? 'Provisioning...' : 'Provision Number'}
                   </button>
@@ -1428,7 +1439,7 @@ export default function AdminDashboard({
                 </div>
                 <div className="bg-white rounded-2xl p-5 border-2 border-stone-100">
                   <div className="text-xs font-bold text-stone-400 uppercase tracking-wide mb-1">Friends &amp; Family</div>
-                  <div className="text-3xl font-black text-purple-600">{ffPaid.length}</div>
+                  <div className="text-3xl font-black text-teal-700">{ffPaid.length}</div>
                   <div className="text-xs text-stone-400 mt-1">manually granted paid plan</div>
                 </div>
                 <div className="bg-white rounded-2xl p-5 border-2 border-stone-100">
@@ -1445,9 +1456,9 @@ export default function AdminDashboard({
 
               {/* F&F notice if any */}
               {ffPaid.length > 0 && (
-                <div className="bg-purple-50 border-2 border-purple-200 rounded-2xl px-5 py-4 flex items-start gap-3">
-                  <span className="text-purple-500 text-lg">ℹ️</span>
-                  <p className="text-sm text-purple-800">
+                <div className="bg-teal-50 border-2 border-teal-200 rounded-2xl px-5 py-4 flex items-start gap-3">
+                  <span className="text-teal-500 text-lg">ℹ️</span>
+                  <p className="text-sm text-teal-800">
                     <span className="font-bold">{ffPaid.length} user{ffPaid.length !== 1 ? 's are' : ' is'} on a paid plan without an active Stripe subscription</span> — these are Friends &amp; Family accounts granted access manually via the admin. They will <span className="font-bold">not</span> generate Stripe revenue and won&apos;t renew automatically.
                   </p>
                 </div>
@@ -1459,7 +1470,7 @@ export default function AdminDashboard({
                   <h3 className="font-black text-stone-900">All Users</h3>
                   <div className="flex items-center gap-3 text-xs font-semibold text-stone-400">
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#C4531A] inline-block" /> Stripe</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-400 inline-block" /> F&amp;F</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-teal-400 inline-block" /> F&amp;F</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-stone-300 inline-block" /> Free</span>
                   </div>
                 </div>
@@ -1475,7 +1486,7 @@ export default function AdminDashboard({
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                             billingSource === 'stripe' ? 'bg-[#C4531A]'
-                            : billingSource === 'ff' ? 'bg-purple-400'
+                            : billingSource === 'ff' ? 'bg-teal-400'
                             : 'bg-stone-300'
                           }`} />
                           <div className="min-w-0">
@@ -1509,7 +1520,7 @@ export default function AdminDashboard({
                             </span>
                           )}
                           {isFF && (
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
+                            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-teal-100 text-teal-700">
                               F&amp;F / Manual
                             </span>
                           )}
@@ -1521,7 +1532,7 @@ export default function AdminDashboard({
                             </span>
                           )}
                           {isFF && (
-                            <span className="text-xs text-purple-400 hidden md:inline">no Stripe sub</span>
+                            <span className="text-xs text-teal-500 hidden md:inline">no Stripe sub</span>
                           )}
 
                           <button
@@ -1765,7 +1776,7 @@ export default function AdminDashboard({
                 <button
                   onClick={fixWebhooks}
                   disabled={loading.fix_webhooks}
-                  className="w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
+                  className="w-full px-6 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
                 >
                   {loading.fix_webhooks ? 'Fixing...' : 'Fix Webhooks'}
                 </button>
@@ -1823,7 +1834,7 @@ export default function AdminDashboard({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-stone-500">SIP Provisioned</span>
-                    <span className="font-bold text-blue-700">{devices.filter(d => d.sipUsername).length}</span>
+                    <span className="font-bold text-[#C4531A]">{devices.filter(d => d.sipUsername).length}</span>
                   </div>
                 </div>
               </div>
@@ -1861,7 +1872,7 @@ export default function AdminDashboard({
                       { label: 'Warning', value: diagnostics.summary.warning, tone: 'text-amber-700' },
                       { label: 'Error', value: diagnostics.summary.error, tone: 'text-red-700' },
                       { label: 'Pending', value: diagnostics.summary.pending, tone: 'text-stone-700' },
-                      { label: 'Online', value: diagnostics.summary.online, tone: 'text-blue-700' },
+                      { label: 'Online', value: diagnostics.summary.online, tone: 'text-[#C4531A]' },
                       { label: 'Recent Failures', value: diagnostics.summary.recentFailures, tone: 'text-red-700' },
                     ].map((item) => (
                       <div key={item.label} className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
@@ -1982,7 +1993,7 @@ export default function AdminDashboard({
                     type="text"
                     value={editDeviceForm.name}
                     onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, name: e.target.value }))}
-                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
                     placeholder="e.g. Office Phone"
                   />
                 </div>
@@ -1993,7 +2004,7 @@ export default function AdminDashboard({
                   <select
                     value={editDeviceForm.adapterType}
                     onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, adapterType: e.target.value as SupportedAdapterType }))}
-                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A]"
                   >
                     {ADAPTER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -2009,7 +2020,7 @@ export default function AdminDashboard({
                     inputMode="tel"
                     value={editDeviceForm.phoneNumber}
                     onChange={(e) => setEditDeviceForm((prev) => ({ ...prev, phoneNumber: formatPhoneInput(e.target.value) }))}
-                    className={`w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 focus:outline-none focus:border-blue-500 font-mono ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'border-stone-200' : 'border-red-300'}`}
+                    className={`w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 focus:outline-none focus:border-[#C4531A] font-mono ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'border-stone-200' : 'border-red-300'}`}
                     placeholder="(555) 010-1234"
                   />
                   <p className={`text-xs mt-1 ${isPhoneInputValid(editDeviceForm.phoneNumber) ? 'text-stone-400' : 'text-red-600'}`}>{getPhoneInputHint(editDeviceForm.phoneNumber, "Leave blank to remove the line. We'll format the number for you.")}</p>
@@ -2032,7 +2043,7 @@ export default function AdminDashboard({
                         setEditDeviceForm((prev) => ({ ...prev, macAddress: val }));
                       }
                     }}
-                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-blue-500 font-mono"
+                    className="w-full bg-stone-50 text-stone-900 rounded-xl px-4 py-3 border-2 border-stone-200 focus:outline-none focus:border-[#C4531A] font-mono"
                     placeholder="e.g. C0:74:AD:12:34:56"
                   />
                 </div>
@@ -2061,7 +2072,7 @@ export default function AdminDashboard({
                   <button
                     onClick={saveDevice}
                     disabled={loading[`edit_${editingDevice.id}`] || !editDeviceForm.name.trim() || !editDeviceForm.macAddress.trim() || !normalizeAdapterType(editDeviceForm.adapterType) || !isPhoneInputValid(editDeviceForm.phoneNumber)}
-                    className="flex-1 px-4 py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition disabled:opacity-50"
+                    className="flex-1 px-4 py-3 bg-[#C4531A] text-white font-bold rounded-xl hover:bg-[#a84313] transition disabled:opacity-50"
                   >
                     {loading[`edit_${editingDevice.id}`] ? 'Saving...' : 'Save Changes'}
                   </button>

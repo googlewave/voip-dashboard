@@ -119,6 +119,12 @@ type NetworkTestProbe = {
   error?: string;
 };
 
+function portalTabClass(active: boolean) {
+  return active
+    ? 'rounded-full border border-stone-200 bg-white px-4 py-2 text-stone-900 shadow-sm'
+    : 'rounded-full px-4 py-2 text-stone-500 hover:bg-white/70 hover:text-stone-800 transition';
+}
+
 function networkSeverityClass(severity: NetworkTestAnalysis['severity']) {
   if (severity === 'success') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
   if (severity === 'error') return 'border-red-200 bg-red-50 text-red-900';
@@ -704,17 +710,19 @@ function DashboardInner() {
     <div className="min-h-screen bg-[#FAF7F2]">
       
       {/* Header */}
-      <header className="bg-white border-b border-stone-200">
+      <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-[#FAF7F2]/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <div>
-              <button onClick={() => router.push('/landing')} className="text-xl font-black text-stone-900">
-                Ring Ring
+            <div className="flex items-center gap-3">
+              <button onClick={() => router.push('/landing')} className="text-xl font-black tracking-tight text-stone-900">
+                Ring Ring Club
               </button>
-              <p className="text-[10px] text-stone-400 font-medium">🔒 Parent Portal - Adult Supervision Required</p>
+              <span className="hidden sm:inline-flex items-center rounded-full border border-[#C4531A]/20 bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#C4531A]">
+                Parent Portal
+              </span>
             </div>
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-stone-500">
-              <button onClick={() => setActiveTab('devices')} className={activeTab === 'devices' ? 'text-stone-900' : 'hover:text-stone-800 transition'}>
+            <nav className="hidden md:flex items-center gap-2 text-sm font-medium">
+              <button onClick={() => setActiveTab('devices')} className={portalTabClass(activeTab === 'devices')}>
                 Devices
               </button>
               <button
@@ -722,26 +730,26 @@ function DashboardInner() {
                   setActiveTab('contacts');
                   if (user) void fetchFriendDevices();
                 }}
-                className={activeTab === 'contacts' ? 'text-stone-900' : 'hover:text-stone-800 transition'}
+                className={portalTabClass(activeTab === 'contacts')}
               >
                 Contacts
               </button>
-              <button onClick={() => setActiveTab('friends')} className={activeTab === 'friends' ? 'text-stone-900' : 'hover:text-stone-800 transition'}>
+              <button onClick={() => setActiveTab('friends')} className={portalTabClass(activeTab === 'friends')}>
                 Friends
               </button>
               <button
                 onClick={() => { setActiveTab('store'); void fetchInvoices(); }}
-                className={activeTab === 'store' ? 'text-stone-900' : 'hover:text-stone-800 transition'}
+                className={portalTabClass(activeTab === 'store')}
               >
                 Store
               </button>
               <button
                 onClick={() => { setActiveTab('lines'); void fetchSubscriptions(); }}
-                className={activeTab === 'lines' ? 'text-stone-900' : 'hover:text-stone-800 transition'}
+                className={portalTabClass(activeTab === 'lines')}
               >
                 Phone Lines
               </button>
-              <button onClick={() => setActiveTab('settings')} className={activeTab === 'settings' ? 'text-stone-900' : 'hover:text-stone-800 transition'}>
+              <button onClick={() => setActiveTab('settings')} className={portalTabClass(activeTab === 'settings')}>
                 Settings
               </button>
             </nav>
@@ -752,7 +760,7 @@ function DashboardInner() {
                 {profile?.plan === 'annual' ? 'Annual' : 'Monthly'}
               </span>
             )}
-            <button onClick={signOut} className="text-sm text-stone-500 hover:text-stone-800 transition">
+            <button onClick={signOut} className="rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition">
               Sign Out
             </button>
           </div>
@@ -808,7 +816,7 @@ function DashboardInner() {
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-sm text-stone-500">
                                 {device.phone_number ? (
-                                  <span className="font-mono font-bold text-blue-600">{formatPhoneDisplay(device.phone_number)}</span>
+                                  <span className="font-mono font-bold text-[#C4531A]">{formatPhoneDisplay(device.phone_number)}</span>
                                 ) : (
                                   <span className="text-stone-400">No line connected</span>
                                 )}
@@ -823,7 +831,7 @@ function DashboardInner() {
                             {device.sip_username && (
                               <button
                                 onClick={() => setShowSetupGuide(showSetupGuide === device.id ? null : device.id)}
-                                className="px-4 py-2 bg-blue-50 text-blue-700 font-bold rounded-xl hover:bg-blue-100 transition text-sm"
+                                className="px-4 py-2 bg-[#C4531A]/10 text-[#C4531A] font-bold rounded-xl hover:bg-[#C4531A]/15 transition text-sm"
                               >
                                 Setup Guide
                               </button>
@@ -1349,7 +1357,7 @@ function DashboardInner() {
                                   </span>
                                 </div>
                                 {i === 0 && profile?.twilio_number && (
-                                  <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
+                                  <p className="font-mono text-sm font-bold text-[#C4531A] mb-1">{profile.twilio_number}</p>
                                 )}
                                 <p className="text-sm text-stone-500">
                                   {sub.cancelAtPeriodEnd ? 'Active until' : 'Renews'}{' '}
@@ -1429,7 +1437,7 @@ function DashboardInner() {
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">active</span>
                           </div>
                           {profile?.twilio_number && (
-                            <p className="font-mono text-sm font-bold text-blue-700 mb-1">{profile.twilio_number}</p>
+                            <p className="font-mono text-sm font-bold text-[#C4531A] mb-1">{profile.twilio_number}</p>
                           )}
                           <p className="text-sm text-stone-500">{profile?.plan === 'annual' ? 'Annual plan' : 'Monthly plan'}</p>
                         </div>
