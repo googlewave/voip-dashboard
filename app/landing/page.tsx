@@ -483,11 +483,11 @@ export default function LandingPage() {
             <div>
               <div className="text-white font-bold mb-4">The Club</div>
               <nav aria-label="The Club" className="space-y-2">
-                <a href="https://ringringclub.com/our-story" className="block hover:text-white transition">Our Analog Story</a>
-                <a href="https://ringringclub.com/how-it-works" className="block hover:text-white transition">How It Works</a>
-                <a href="https://ringringclub.com/shop" className="block hover:text-white transition">The Shop</a>
-                <a href="https://ringringclub.com/pricing" className="block hover:text-white transition">Pricing</a>
-                <a href="https://ringringclub.com/community" className="block hover:text-white transition">Community</a>
+                <a href="#" className="block hover:text-white transition">Our Analog Story</a>
+                <a href="#" className="block hover:text-white transition">How It Works</a>
+                <a href="#" className="block hover:text-white transition">The Shop</a>
+                <a href="#" className="block hover:text-white transition">Pricing</a>
+                <a href="/community" className="block hover:text-white transition">Community</a>
               </nav>
             </div>
 
@@ -495,9 +495,9 @@ export default function LandingPage() {
             <div>
               <div className="text-white font-bold mb-4">Support</div>
               <nav aria-label="Support" className="space-y-2">
-                <a href="https://ringringclub.com/faq" className="block hover:text-white transition">FAQs</a>
-                <a href="https://ringringclub.com/setup" className="block hover:text-white transition">Setup Guides</a>
-                <a href="https://ringringclub.com/contact" className="block hover:text-white transition">Contact Us</a>
+                <a href="#" className="block hover:text-white transition">FAQs</a>
+                <a href="#" className="block hover:text-white transition">Setup Guides</a>
+                <a href="#" className="block hover:text-white transition">Contact Us</a>
               </nav>
             </div>
 
@@ -505,9 +505,9 @@ export default function LandingPage() {
             <div>
               <div className="text-white font-bold mb-4">Account</div>
               <nav aria-label="Account" className="space-y-2">
-                <a href="https://ringringclub.com/login" className="block hover:text-white transition">Log In</a>
-                <a href="https://ringringclub.com/Join" className="block hover:text-white transition">Sign Up</a>
-                <a href="https://ringringclub.com/invite" className="block hover:text-white transition">Invite a Neighbor</a>
+                <a href="/login" className="block hover:text-white transition">Log In</a>
+                <a href="/buy" className="block hover:text-white transition">Sign Up</a>
+                <a href="/invite" className="block hover:text-white transition">Invite a Neighbor</a>
               </nav>
             </div>
           </div>
@@ -516,13 +516,13 @@ export default function LandingPage() {
           <div className="border-t border-stone-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-stone-600">
             <p>© 2026 Ring Ring. All rights reserved.</p>
             <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <a href="https://ringringclub.com/terms" className="hover:text-stone-400 transition">Terms of Service</a>
+              <a href="#" className="hover:text-stone-400 transition">Terms of Service</a>
               <span aria-hidden="true">|</span>
-              <a href="https://ringringclub.com/privacy" className="hover:text-stone-400 transition">Privacy Policy</a>
+              <a href="#" className="hover:text-stone-400 transition">Privacy Policy</a>
               <span aria-hidden="true">|</span>
-              <a href="https://ringringclub.com/e911" className="hover:text-stone-400 transition">E911 Disclosure</a>
+              <a href="#" className="hover:text-stone-400 transition">E911 Disclosure</a>
               <span aria-hidden="true">|</span>
-              <a href="https://ringringclub.com/refunds" className="hover:text-stone-400 transition">Refund Policy</a>
+              <a href="#" className="hover:text-stone-400 transition">Refund Policy</a>
             </nav>
           </div>
         </div>
